@@ -26,6 +26,7 @@ from cellworldmodel.foundation.transition_index import FoundationTransitionIdSam
 from cellworldmodel.foundation.vae_eval import LoadedVAE, load_vae_checkpoint
 from cellworldmodel.foundation.vae_train import batch_codes, mean_row_pearson
 from cellworldmodel.model.pc_celldrift_bench import downhill_loss
+from cellworldmodel.provenance.models import sha256_file
 from cellworldmodel.training.benchmark_loop import build_optimizer, build_scheduler
 from cellworldmodel.training.drift_loss import (
     drift_stopgrad_loss_from_raw,
@@ -59,6 +60,12 @@ class FoundationDynamicsTrainOptions:
     checkpoint_every_steps: int = 1000
     log_every: int = 50
     device: str | None = None
+    static_initialization: str = "legacy"
+    train_transition_policy: str = "all_ordered"
+    transport_objective: str = "legacy"
+    transport_blur: float = 0.05
+    transport_max_iters: int = 20000
+    transport_tolerance: float = 1e-4
 
 
 def build_foundation_dynamics_cfg(
@@ -90,6 +97,8 @@ def build_foundation_dynamics_cfg(
         max_delta = max(float(np.max(deltas)), 1e-6)
         cfg["wdit_time_delta_scale"] = max_delta
         cfg["wdit_curl_time_delta_scale"] = max_delta
+        if cfg.get("dit_time_embedding", "legacy_fourier") != "legacy_fourier":
+            cfg["dit_time_delta_scale"] = max_delta
     return spec.method, cfg, tau_init
 
 
@@ -99,6 +108,20 @@ def _to_tensor(x: np.ndarray, device: torch.device) -> torch.Tensor:
 
 class FoundationDynamicsTrainer:
     def __init__(self, cfg: FoundationConfig, options: FoundationDynamicsTrainOptions, wandb_run=None) -> None:
+        if options.transport_objective not in {"legacy", "sinkhorn_divergence", "converged_proxy"}:
+            raise ValueError(f"Unknown transport objective: {options.transport_objective}")
+        if options.transport_objective != "legacy" and options.objective != "temporal_dynamics":
+            raise ValueError("Transport objectives require temporal_dynamics")
+        if options.train_transition_policy not in {"all_ordered", "leaf_endpoints"}:
+            raise ValueError("train_transition_policy must be all_ordered or leaf_endpoints")
+        if options.train_transition_policy != "all_ordered" and options.objective != "temporal_dynamics":
+            raise ValueError("leaf_endpoints requires temporal_dynamics")
+        if options.static_initialization not in {"legacy", "match-temporal"}:
+            raise ValueError("static_initialization must be legacy or match-temporal")
+        align_static = options.static_initialization == "match-temporal"
+        if align_static and (options.objective != "static_dit_reconstruction"
+                             or options.transition_index_dir is None):
+            raise ValueError("match-temporal requires static_dit_reconstruction and transition_index_dir")
         self.cfg = cfg
         self.options = options
         self.wandb_run = wandb_run
@@ -116,6 +139,7 @@ class FoundationDynamicsTrainer:
         self.expression_dataset: FoundationExpressionDataset | None = None
         self.latent_cache: LatentCacheDataset | None = None
         self.transition_latents: FoundationLatentTransitionDataset | None = None
+        self.training_transition_sampling = None
         transition_index = None
         if options.objective == "static_dit_reconstruction":
             if options.vae_checkpoint is None:
@@ -125,6 +149,13 @@ class FoundationDynamicsTrainer:
                 param.requires_grad_(False)
             self.expression_dataset = FoundationExpressionDataset(options.catalog_dir)
             latent_dim = int(self.loaded_vae.config["latent_dim"])
+            if align_static:
+                transition_index = pd.read_parquet(Path(options.transition_index_dir) / "transition_index.parquet")
+                deltas = transition_index["delta"].to_numpy(dtype=float)
+                if not len(deltas) or not np.isfinite(deltas).all() or not (deltas > 0).all():
+                    raise ValueError("Static initialization alignment requires finite positive training horizons")
+                if "split" not in transition_index or not (transition_index["split"] == "train").all():
+                    raise ValueError("Static initialization alignment requires a train-only transition index")
         elif options.objective == "temporal_dynamics":
             if options.latent_cache_dir is None or options.transition_index_dir is None:
                 raise ValueError("latent_cache_dir and transition_index_dir are required for temporal_dynamics")
@@ -138,6 +169,8 @@ class FoundationDynamicsTrainer:
                 split="train",
                 leaf_sampling_alpha=float(cfg.vae.leaf_sampling_alpha),
             )
+            if options.train_transition_policy == "leaf_endpoints":
+                self.training_transition_sampling = self.transition_latents.id_sampler.restrict_to_leaf_endpoints()
             latent_dim = int(latent_cache.latent_dim)
         else:
             raise ValueError(f"Unsupported foundation dynamics objective={options.objective!r}")
@@ -152,7 +185,42 @@ class FoundationDynamicsTrainer:
         )
         if options.objective == "static_dit_reconstruction":
             self.train_cfg["loss_balancer"] = "fixed"
+        if options.transport_objective != "legacy":
+            self.train_cfg.update({
+                "transport_objective": options.transport_objective,
+                "transport_blur": float(options.transport_blur),
+                "transport_max_iters": int(options.transport_max_iters),
+                "transport_tolerance": float(options.transport_tolerance),
+            })
+        if align_static:
+            # Loading the auxiliary VAE consumes RNG before its weights are restored.
+            # Match the temporal trainer's model-construction boundary explicitly.
+            torch.manual_seed(options.seed)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed_all(options.seed)
         self.model = build_model(self.method, latent_dim, self.train_cfg, tau_init=tau_init).to(self.device)
+        self.initialization_alignment = None
+        if align_static:
+            initial_path = self.output_dir / "initial_backbone.pt"
+            with initial_path.open("xb") as handle:
+                torch.save({
+                    "model_state_dict": {key: value.detach().cpu().clone()
+                                         for key, value in self.model.state_dict().items()},
+                    "config": {"objective": options.objective, "method": self.method,
+                               "train_cfg": self.train_cfg, "latent_dim": latent_dim,
+                               "seed": options.seed, "tau_init": float(tau_init), "step": 0},
+                }, handle)
+            self.initialization_alignment = {
+                "mode": options.static_initialization,
+                "transition_index": str(Path(options.transition_index_dir) / "transition_index.parquet"),
+                "tau_init": float(tau_init),
+                "initial_checkpoint": str(initial_path),
+                "initial_checkpoint_sha256": sha256_file(initial_path),
+                "effective_static_k": 1,
+                "effective_static_noise": "zero",
+                "static_delta": float(options.static_delta),
+                "scope": "Aligned backbone initialization and time scales; supervision, source sampling, noise and balancing remain different recipes",
+            }
         if options.objective == "temporal_dynamics":
             component_names = [
                 name for name in ["mmd", "w2", "drift", "down"]
@@ -296,7 +364,12 @@ class FoundationDynamicsTrainer:
         z_hat_flat = z_hat.reshape(-1, src.shape[1])
 
         loss_mmd = mmd2_unbiased_multi_sigma(z_hat_flat, tgt)
-        loss_w2 = sinkhorn_w2(z_hat_flat, tgt, epsilon=float(self.train_cfg["sinkhorn_eps"]), num_iters=50)
+        if self.train_cfg.get("transport_objective", "legacy") == "legacy":
+            loss_w2 = sinkhorn_w2(z_hat_flat, tgt, epsilon=float(self.train_cfg["sinkhorn_eps"]), num_iters=50)
+        else:
+            from cellworldmodel.training.transport_objective import training_transport
+
+            loss_w2 = training_transport(z_hat_flat, tgt, self.train_cfg)
         self._ensure_temporal_feature_stats(tgt)
         loss_drift, drift_info = drift_stopgrad_loss_from_raw(
             z_gen=z_hat_flat,
@@ -386,6 +459,10 @@ class FoundationDynamicsTrainer:
                 "train_cfg": self.train_cfg,
                 "latent_dim": int(self.model.dim),
                 "step": int(step),
+                **({"initialization_alignment": self.initialization_alignment}
+                   if self.initialization_alignment is not None else {}),
+                **({"training_transition_sampling": self.training_transition_sampling}
+                   if self.training_transition_sampling is not None else {}),
             },
         }, path)
 
@@ -405,6 +482,10 @@ class FoundationDynamicsTrainer:
             "elapsed_s": float(elapsed_s),
             "steps_per_s": float(self.options.max_steps / elapsed_s) if elapsed_s > 0 else None,
             "history": self.history,
+            **({"initialization_alignment": self.initialization_alignment}
+               if self.initialization_alignment is not None else {}),
+            **({"training_transition_sampling": self.training_transition_sampling}
+               if self.training_transition_sampling is not None else {}),
             **(eval_info or {}),
         }
         if self.wandb_run is not None:

@@ -20,7 +20,11 @@ import torch
 import torch.nn as nn
 
 from cellworldmodel.model.br_celldrift_bench import AlphaGate, FourierTimeEmbedding
-from cellworldmodel.model.drift_dit_1d import DiTBlock, RMSNorm, RotaryPositionEmbedding
+from cellworldmodel.model.drift_dit_1d import (
+    DiTBlock,
+    RMSNorm,
+    RotaryPositionEmbedding,
+)
 
 
 class BoundedLowFreqFourierTimeEmbedding(nn.Module):
@@ -141,6 +145,9 @@ class WaddingtonDiT1D(nn.Module):
         curl_time_embedding_mode: str = "same",
         curl_time_delta_transform: str = "normalized",
         curl_time_delta_scale: float | None = None,
+        growth_head: bool = False,
+        growth_log_mass_clip: float = 8.0,
+        growth_integration_steps: int = 1,
     ) -> None:
         super().__init__()
         assert hidden_dim % num_heads == 0
@@ -189,6 +196,12 @@ class WaddingtonDiT1D(nn.Module):
         self.curl_time_delta_scale = (
             float(curl_time_delta_scale) if curl_time_delta_scale is not None else self.time_delta_scale
         )
+        self.growth_log_mass_clip = float(growth_log_mass_clip)
+        if self.growth_log_mass_clip <= 0:
+            raise ValueError("growth_log_mass_clip must be positive")
+        self.growth_integration_steps = int(growth_integration_steps)
+        if self.growth_integration_steps < 1:
+            raise ValueError("growth_integration_steps must be positive")
         self.tokenizer_mode = "waddington_single"
         self.num_state_tokens = 1
 
@@ -236,6 +249,7 @@ class WaddingtonDiT1D(nn.Module):
 
         self.U_head = nn.Linear(hidden_dim, 1)
         self.A_head = nn.Linear(hidden_dim, 2 * dim * curl_rank)
+        self.growth_head = nn.Linear(hidden_dim, 1) if growth_head else None
         self._sigma_raw = nn.Parameter(torch.zeros(dim))
         self._init_weights()
 
@@ -283,6 +297,9 @@ class WaddingtonDiT1D(nn.Module):
         nn.init.zeros_(self.U_head.bias)
         nn.init.normal_(self.A_head.weight, std=0.02)
         nn.init.zeros_(self.A_head.bias)
+        if self.growth_head is not None:
+            nn.init.normal_(self.growth_head.weight, std=1e-3)
+            nn.init.zeros_(self.growth_head.bias)
 
     def _features(
         self,
@@ -293,7 +310,8 @@ class WaddingtonDiT1D(nn.Module):
     ) -> torch.Tensor:
         """Return DiT source-token feature h(z, Delta)."""
         B = z.shape[0]
-        src = self.src_proj(z).unsqueeze(1)
+        src = self.src_proj(z)
+        src = src.unsqueeze(1)
         reg = self.register_tokens.expand(B, -1, -1)
         pieces = [src, reg]
         if self.action_proj is not None and action is not None:
@@ -331,9 +349,19 @@ class WaddingtonDiT1D(nn.Module):
         action: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         if self.curl_time_mode == "state_only":
-            return self._features(z, torch.zeros_like(delta), self.curl_time_embed, action)
+            return self._features(
+                z,
+                torch.zeros_like(delta),
+                self.curl_time_embed,
+                action,
+            )
         if self.curl_time_mode == "separate":
-            return self._features(z, delta, self.curl_time_embed, action)
+            return self._features(
+                z,
+                delta,
+                self.curl_time_embed,
+                action,
+            )
         return h_full
 
     def _cayley_rotate(
@@ -375,6 +403,7 @@ class WaddingtonDiT1D(nn.Module):
         action: Optional[torch.Tensor] = None,
         create_graph: bool | None = None,
         detach_eval: bool = False,
+        preserve_source_grad: bool = False,
     ) -> dict[str, torch.Tensor]:
         """Return deterministic residual components.
 
@@ -384,9 +413,18 @@ class WaddingtonDiT1D(nn.Module):
         if create_graph is None:
             create_graph = self.training
         with torch.enable_grad():
-            z_req = z.detach().requires_grad_(True)
-            h = self._features(z_req, delta, action=action)
-            h_curl = self._curl_features(z_req, delta, h, action)
+            z_req = z if preserve_source_grad and z.requires_grad else z.detach().requires_grad_(True)
+            h = self._features(
+                z_req,
+                delta,
+                action=action,
+            )
+            h_curl = self._curl_features(
+                z_req,
+                delta,
+                h,
+                action,
+            )
             potential = self.U_head(h).sum()
             grad_u = torch.autograd.grad(
                 potential,
@@ -415,6 +453,7 @@ class WaddingtonDiT1D(nn.Module):
         delta: torch.Tensor,
         epsilon: torch.Tensor,
         action: Optional[torch.Tensor] = None,
+        preserve_source_grad: bool = False,
     ) -> torch.Tensor:
         if self.action_dim > 0 and action is None:
             raise ValueError("action is required when action_dim > 0")
@@ -423,7 +462,8 @@ class WaddingtonDiT1D(nn.Module):
         assert D == self.dim
         alpha = self.alpha_gate(delta)
         comp = self.decompose_deterministic_residual(
-            z, delta, action=action, create_graph=self.training, detach_eval=not self.training
+            z, delta, action=action, create_graph=self.training, detach_eval=not self.training,
+            preserve_source_grad=preserve_source_grad,
         )
         neg_grad_u = comp["neg_grad_u"]
         noise = self.sigma[None, None, :] * epsilon
@@ -498,18 +538,135 @@ class WaddingtonDiT1D(nn.Module):
         h = self._features(z, delta, action=action)
         return self.U_head(h).squeeze(-1)
 
+    def compute_growth(
+        self,
+        z: torch.Tensor,
+        delta: torch.Tensor,
+        action: Optional[torch.Tensor] = None,
+        *,
+        detach_features: bool = False,
+    ) -> torch.Tensor:
+        """Predict one scalar growth rate per source cell.
+
+        Growth is intentionally independent of epsilon: all K stochastic
+        descendants of one source cell share the same source-cell mass.
+        """
+        if self.growth_head is None:
+            raise RuntimeError("growth_head is disabled for this model")
+        if self.action_dim > 0 and action is None:
+            raise ValueError("action is required when action_dim > 0")
+        h = self._features(
+            z,
+            delta,
+            action=action,
+        )
+        if detach_features:
+            h = h.detach()
+        return self.growth_head(h).squeeze(-1)
+
+    def compute_log_mass(
+        self,
+        z: torch.Tensor,
+        delta: torch.Tensor,
+        action: Optional[torch.Tensor] = None,
+        *,
+        detach_features: bool = False,
+    ) -> torch.Tensor:
+        """Return finite-interval log mass, optionally integrated along a path."""
+        if self.growth_integration_steps == 1:
+            growth = self.compute_growth(
+                z,
+                delta,
+                action=action,
+                detach_features=detach_features,
+            )
+            log_mass = self.alpha_gate(delta) * growth
+        else:
+            step_delta = delta / float(self.growth_integration_steps)
+            log_mass = torch.zeros_like(delta)
+            for step in range(self.growth_integration_steps):
+                if step == 0:
+                    state = z
+                else:
+                    fraction = float(step) / float(self.growth_integration_steps)
+                    partial_delta = delta * fraction
+                    state = self.predict_mean(
+                        z,
+                        partial_delta,
+                        action=action,
+                    ).detach()
+                growth = self.compute_growth(
+                    state,
+                    step_delta,
+                    action=action,
+                    detach_features=detach_features,
+                )
+                log_mass = log_mass + self.alpha_gate(step_delta) * growth
+        return torch.clamp(
+            log_mass,
+            min=-self.growth_log_mass_clip,
+            max=self.growth_log_mass_clip,
+        )
+
+    def predict_mass(
+        self,
+        z: torch.Tensor,
+        delta: torch.Tensor,
+        action: Optional[torch.Tensor] = None,
+        *,
+        detach_features: bool = False,
+    ) -> torch.Tensor:
+        """Return positive per-source masses for a finite transition."""
+        return torch.exp(
+            self.compute_log_mass(
+                z,
+                delta,
+                action=action,
+                detach_features=detach_features,
+            )
+        )
+
     def waddington_regularization(
         self,
         z: torch.Tensor,
         delta: torch.Tensor,
         action: Optional[torch.Tensor] = None,
     ) -> dict[str, torch.Tensor]:
-        h = self._features(z, delta, action=action)
-        h_curl = self._curl_features(z, delta, h, action)
+        h = self._features(
+            z,
+            delta,
+            action=action,
+        )
+        h_curl = self._curl_features(
+            z,
+            delta,
+            h,
+            action,
+        )
         curl, p_mat, q_mat = self._curl_from_features(h_curl, z)
         return {
             "wdit_a_fro": p_mat.pow(2).mean() + q_mat.pow(2).mean(),
             "wdit_curl_sq": curl.pow(2).sum(dim=-1).mean(),
+        }
+
+    def growth_regularization(
+        self,
+        z: torch.Tensor,
+        delta: torch.Tensor,
+        action: Optional[torch.Tensor] = None,
+        log_mass: Optional[torch.Tensor] = None,
+    ) -> dict[str, torch.Tensor]:
+        """Return growth-energy, log-mass variance and gauge penalties."""
+        if self.growth_head is None:
+            raise RuntimeError("growth_head is disabled for this model")
+        growth = self.compute_growth(z, delta, action=action)
+        if log_mass is None:
+            log_mass = self.compute_log_mass(z, delta, action=action)
+        centered_log_mass = log_mass - log_mass.mean()
+        return {
+            "growth_energy": growth.pow(2).mean(),
+            "growth_logvar": centered_log_mass.pow(2).mean(),
+            "growth_gauge": log_mass.mean().pow(2),
         }
 
 

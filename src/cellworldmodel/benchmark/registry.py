@@ -47,6 +47,21 @@ def build_adapter(dataset: str, pcs: int, seed: int):
     if dataset == "paper_veres_scvi128":
         from cellworldmodel.benchmark.paper_bench_adapter import PaperBenchScVI128Adapter
         return PaperBenchScVI128Adapter("veres", seed=seed)
+    if dataset.startswith("paper_native_"):
+        # generic: paper_native_<name> reads <representation root>/<name>,
+        # letting a benchmark that ships its own aligned coordinates reuse the
+        # whole shared-representation protocol without a bespoke adapter.
+        from cellworldmodel.benchmark.paper_bench_adapter import PaperBenchScVI128Adapter
+        return PaperBenchScVI128Adapter(dataset[len("paper_native_"):], seed=seed)
+    if dataset == "synthetic_growth":
+        from cellworldmodel.benchmark.synthetic_growth_adapter import SyntheticGrowthAdapter
+        return SyntheticGrowthAdapter(seed=seed)
+    if dataset == "cellstream_sim_growth":
+        from cellworldmodel.benchmark.cellstream_adapter import CellStreamSimGrowthAdapter
+        return CellStreamSimGrowthAdapter(seed=seed)
+    if dataset == "stvcr_rectangle_gene":
+        from cellworldmodel.benchmark.synthetic_growth_adapter import StVCRRectangleGeneAdapter
+        return StVCRRectangleGeneAdapter(seed=seed)
     if dataset == "norman":
         scdfm_path = (
             Path(__file__).parent.parent.parent.parent
@@ -100,6 +115,9 @@ def build_model(method: str, dim: int, cfg: dict, tau_init: float):
                 curl_time_delta_transform=str(cfg.get("wdit_curl_time_delta_transform", "normalized")),
                 curl_time_delta_scale=cfg.get("wdit_curl_time_delta_scale"),
                 action_dim=int(cfg.get("action_dim", 0)),
+                growth_head=str(cfg.get("growth_mode", "frozen")) == "learned",
+                growth_log_mass_clip=float(cfg.get("growth_log_mass_clip", 8.0)),
+                growth_integration_steps=int(cfg.get("growth_integration_steps", 1)),
             )
         ctor = DRIFT_DIT_1D_MODELS[dit_size]
         return ctor(
@@ -110,6 +128,10 @@ def build_model(method: str, dim: int, cfg: dict, tau_init: float):
             learned_state_tokens=cfg.get("learned_state_tokens"),
             use_rope=not bool(cfg.get("disable_rope", False)),
             action_dim=int(cfg.get("action_dim", 0)),
+            time_embedding_mode=str(cfg.get("dit_time_embedding", "legacy_fourier")),
+            time_delta_transform=str(cfg.get("dit_time_delta_transform", "normalized")),
+            time_delta_scale=cfg.get("dit_time_delta_scale"),
+            mean_prediction_mode=str(cfg.get("dit_mean_prediction", "monte_carlo")),
         )
     raise ValueError(f"Unknown method: {method}")
 

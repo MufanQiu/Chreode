@@ -234,9 +234,14 @@ def cmd_train_foundation_dynamics(args: argparse.Namespace) -> None:
             k_samples=args.k_samples,
             lr=args.lr,
             static_delta=args.static_delta,
+            static_initialization=args.static_initialization,
+            train_transition_policy=getattr(args, "train_transition_policy", "all_ordered"),
             checkpoint_every_steps=args.checkpoint_every_steps,
             log_every=args.log_every,
             device=args.device,
+            **{name: getattr(args, name) for name in (
+                "transport_objective", "transport_blur", "transport_max_iters", "transport_tolerance"
+            ) if getattr(args, name, None) is not None},
         ),
         wandb_run=wandb_run,
     )
@@ -613,9 +618,18 @@ def build_parser() -> argparse.ArgumentParser:
     dyn.add_argument("--seed", type=int, default=0)
     dyn.add_argument("--lr", type=float, default=3e-4)
     dyn.add_argument("--static-delta", type=float, default=1.0)
+    dyn.add_argument("--static-initialization", choices=["legacy", "match-temporal"], default="legacy",
+                     help="Align only static backbone RNG and time scales with the supplied temporal training index.")
+    dyn.add_argument("--train-transition-policy", choices=["all_ordered", "leaf_endpoints"], default="all_ordered",
+                     help="Restrict temporal training to each leaf's endpoints while retaining ordered-pair leaf probabilities and model time scales.")
     dyn.add_argument("--checkpoint-every-steps", type=int, default=1000)
     dyn.add_argument("--log-every", type=int, default=50)
     dyn.add_argument("--device", default=None)
+    dyn.add_argument("--transport-objective", default=None,
+                     choices=["legacy", "sinkhorn_divergence", "converged_proxy"])
+    dyn.add_argument("--transport-blur", type=float, default=None)
+    dyn.add_argument("--transport-max-iters", type=int, default=None)
+    dyn.add_argument("--transport-tolerance", type=float, default=None)
     add_wandb_args(dyn)
     dyn.set_defaults(func=cmd_train_foundation_dynamics)
 

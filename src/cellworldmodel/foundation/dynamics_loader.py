@@ -9,6 +9,7 @@ import torch.nn as nn
 
 from cellworldmodel.benchmark.registry import build_model
 from cellworldmodel.foundation.dynamics_train import build_foundation_dynamics_cfg
+from cellworldmodel.training.checkpointing import MODEL_CONFIG_KEYS
 
 
 def load_foundation_transition(
@@ -50,6 +51,18 @@ def load_foundation_transition(
             k_samples=int(k_samples),
             lr=float(lr),
         )
+        # Downstream-benchmark checkpoints (run_intermediate_eval --save-checkpoint)
+        # store their model config at the top-level "cfg" key rather than under
+        # config.train_cfg. Without merging the shape-relevant keys, arms whose
+        # config differs from the foundation recipe (e.g. scratch) restore only
+        # the shape-coincident subset and silently keep random weights elsewhere.
+        if ckpt is not None and isinstance(ckpt.get("cfg"), dict):
+            train_cfg.update({k: v for k, v in ckpt["cfg"].items() if k in MODEL_CONFIG_KEYS})
+            method = str(ckpt.get("method", method))
+            try:
+                tau_init = float(ckpt.get("tau_init", tau_init))
+            except (TypeError, ValueError):
+                pass
     train_cfg["action_dim"] = int(action_dim)
     train_cfg["loss_balancer"] = "fixed"
     model = build_model(method, int(latent_dim), train_cfg, tau_init=tau_init).to(device)

@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "chreode"
-version = "0.1.0"
-description = "Chreode: a one-step cell world model for temporal dynamics and perturbation prediction"
+version = "0.2.0"
+description = "Chreode: a pretrained one-step spatial cell world model"
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.10"
@@ -48,6 +48,7 @@ dependencies = [
     "anndata>=0.10",
     "scanpy>=1.10",
     "POT>=0.9",
+    "geomloss==0.2.6",
     "torchdiffeq>=0.2",
     "torchdyn>=1.0",
     "torchsde>=0.2",
@@ -74,12 +75,12 @@ gears = ["cell-gears>=0.0.6", "torch-geometric>=2.4"]
 dev = ["pytest>=7.0", "ruff>=0.1", "ipython"]
 
 [project.urls]
-Homepage = "https://github.com/mufanq/Chreode"
+Homepage = "https://github.com/MufanQiu/Chreode"
 Paper = "https://arxiv.org/abs/2605.28111"
-Repository = "https://github.com/mufanq/Chreode"
-"Pretrained weights" = "https://huggingface.co/WhenceFade/chreode-pretrained"
-"Downstream checkpoints" = "https://huggingface.co/WhenceFade/chreode-downstream"
-"Phase-0 artifacts" = "https://huggingface.co/datasets/WhenceFade/chreode-phase0"
+Repository = "https://github.com/MufanQiu/Chreode"
+"Pretrained weights" = "https://huggingface.co/MufanQiu/chreode-pretrained/tree/iclr2027-20260915"
+"Downstream checkpoints" = "https://huggingface.co/MufanQiu/chreode-downstream/tree/iclr2027-20260915"
+"Evaluation data" = "https://huggingface.co/datasets/MufanQiu/chreode-phase0/tree/iclr2027-20260915"
 
 [tool.setuptools]
 package-dir = { "" = "src" }

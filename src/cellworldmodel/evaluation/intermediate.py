@@ -65,11 +65,27 @@ def evaluate_intermediate(model, adapter, device, cfg: dict, seed: int,
             tgt = tgt[idx_t]
 
         preds = predict_at_delta(model, src, delta, cfg["K"], adapter.dim, device)
+        pred_sample_weight = None
+        if str(cfg.get("growth_mode", "frozen")) == "learned" and hasattr(model, "predict_mass"):
+            delta_t = torch.full((src.shape[0],), delta, device=device, dtype=src.dtype)
+            pred_mass = model.predict_mass(src, delta_t)
+            pred_sample_weight = pred_mass.repeat_interleave(cfg["K"])
         if preds.shape[0] > max_preds:
             idx_p = torch.randperm(preds.shape[0], device=device)[:max_preds]
             preds = preds[idx_p]
+            if pred_sample_weight is not None:
+                pred_sample_weight = pred_sample_weight[idx_p]
 
-        metrics = compute_dual_protocol_metrics(preds, tgt, seed=seed)
+        if getattr(adapter, "standardize_metrics", False):
+            preds = adapter.transform_for_metrics(preds)
+            tgt = adapter.transform_for_metrics(tgt)
+
+        metrics = compute_dual_protocol_metrics(
+            preds,
+            tgt,
+            seed=seed,
+            weight_pred=pred_sample_weight,
+        )
         results[f"t={t}"] = {
             "delta": delta,
             "n_pred": int(preds.shape[0]),

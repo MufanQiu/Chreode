@@ -18,6 +18,10 @@ MODEL_CONFIG_KEYS = {
     "disable_rope",
     "state_chunk_dim",
     "learned_state_tokens",
+    "dit_time_embedding",
+    "dit_time_delta_transform",
+    "dit_time_delta_scale",
+    "dit_mean_prediction",
     "wdit_curl_update",
     "wdit_curl_time_mode",
     "wdit_hybrid_delta0",
@@ -29,6 +33,7 @@ MODEL_CONFIG_KEYS = {
     "wdit_curl_time_embedding",
     "wdit_curl_time_delta_transform",
     "wdit_curl_time_delta_scale",
+    "growth_integration_steps",
 }
 
 
@@ -40,9 +45,22 @@ def build_checkpoint_payload(model, **metadata: Any) -> dict[str, Any]:
 
 
 def save_model_checkpoint(path: str | Path, model, **metadata: Any) -> Path:
+    return save_checkpoint_payload(path, build_checkpoint_payload(model, **metadata))
+
+
+def save_checkpoint_payload(path: str | Path, payload: dict[str, Any], *, provenance=None) -> Path:
+    """Shared verification for model, adapter, and multi-network checkpoints."""
+    if provenance is not None:
+        from cellworldmodel.provenance.writer import attach_provenance
+        payload = attach_provenance(payload, provenance)
+    provenance = payload.get("provenance")
+    if isinstance(provenance, dict) and provenance.get("schema_version") == 2:
+        from cellworldmodel.provenance.models import ArtifactProvenance
+        from cellworldmodel.provenance.writer import verify_inputs
+        verify_inputs(ArtifactProvenance.model_validate(provenance))
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    torch.save(build_checkpoint_payload(model, **metadata), path)
+    torch.save(payload, path)
     return path
 
 
