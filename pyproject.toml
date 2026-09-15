@@ -1,0 +1,89 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chreode"
+version = "0.2.0"
+description = "Chreode: a pretrained one-step spatial cell world model"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+keywords = [
+    "single-cell",
+    "foundation-model",
+    "world-model",
+    "perturbation-prediction",
+    "Waddington",
+    "diffusion-transformer",
+    "scRNA-seq",
+]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+# Core runtime dependencies. PyTorch is intentionally NOT pinned to a CUDA
+# build here — install the wheel matching your GPU / CUDA version separately
+# (see README.md "Install").
+dependencies = [
+    "torch>=2.1,<3.0",
+    "numpy>=1.24,<2.0",
+    "pandas>=2.0",
+    "scipy>=1.10",
+    "scikit-learn>=1.3",
+    "anndata>=0.10",
+    "scanpy>=1.10",
+    "POT>=0.9",
+    "geomloss==0.2.6",
+    "torchdiffeq>=0.2",
+    "torchdyn>=1.0",
+    "torchsde>=0.2",
+    "annoy>=1.17",
+    "wandb>=0.16",
+    "omegaconf>=2.3",
+    "pydantic>=2.0",
+    "pyarrow>=14.0",
+    "tqdm>=4.66",
+    "matplotlib>=3.7",
+    "huggingface_hub>=0.24",
+    "pyyaml>=6.0",
+]
+
+[[project.authors]]
+name = "Anonymous authors"
+[project.optional-dependencies]
+# scVI Stage-1 encoder.
+scvi = ["scvi-tools>=1.1"]
+# Snakemake workflow orchestration.
+workflow = ["snakemake>=8.0", "snakemake-wrapper-utils>=0.6"]
+# Norman GEARS embedding-replacement baseline (§5.4).
+# See reproduce/05_norman.md for the GEARS environment caveat.
+gears = ["cell-gears>=0.0.6", "torch-geometric>=2.4"]
+# Development tools.
+dev = ["pytest>=7.0", "ruff>=0.1", "ipython"]
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"cellworldmodel" = ["py.typed"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = ["E501", "B008"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
