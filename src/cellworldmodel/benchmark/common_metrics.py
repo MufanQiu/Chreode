@@ -10,6 +10,8 @@ Used for Stage 2 training losses (MMD/W2) and benchmark evaluation (W1/W2/MMD).
 """
 from __future__ import annotations
 
+import warnings
+
 from typing import Sequence
 
 import numpy as np
@@ -165,19 +167,35 @@ def exact_w_pq(
     X: torch.Tensor,
     Y: torch.Tensor,
     p: int = 2,
+    weight_x: torch.Tensor | np.ndarray | None = None,
+    weight_y: torch.Tensor | np.ndarray | None = None,
+    num_iter_max: int = 10_000_000,
 ) -> float:
     """Exact p-Wasserstein distance via POT (non-differentiable).
 
     Uses POT's `ot.emd2` on squared distances for W2² or raw distances for W1.
     Returns a Python float.
 
+    The iteration cap matters. POT's default (100k) stops the network simplex
+    before optimality on the sample sizes used here and returns the unconverged
+    value with only a warning: measured on a Weinreb test split, the same pair
+    of clouds gives 4.90 at n=4000 and 4.25 at n=5650 unconverged, against 4.83
+    and 4.07 converged (1.5% and 4.6% high). Since the cap binds at larger n,
+    an arm scored against more cells is penalised for that alone, which is the
+    opposite of a fair comparison. We therefore raise the cap and refuse to
+    return a value that is still unconverged rather than reporting it silently.
+
     Args:
         X: (m, d) samples
         Y: (n, d) samples
         p: 1 for W1, 2 for W2
+        num_iter_max: network-simplex iteration cap handed to POT
 
     Returns:
         float: W_p distance (NOT W_p² — we take the p-th root)
+
+    Raises:
+        RuntimeError: if the solver still reports non-optimality at that cap.
     """
     try:
         import ot
@@ -185,20 +203,47 @@ def exact_w_pq(
         raise ImportError("POT (pip install pot) required for exact W_p") from e
 
     m, n = X.shape[0], Y.shape[0]
-    a = np.ones(m) / m
-    b = np.ones(n) / n
+    def _weights(value, size: int, name: str) -> np.ndarray:
+        if value is None:
+            return np.ones(size, dtype=np.float64) / size
+        if isinstance(value, torch.Tensor):
+            arr = value.detach().cpu().numpy()
+        else:
+            arr = np.asarray(value)
+        arr = arr.astype(np.float64, copy=False).reshape(-1)
+        if arr.shape[0] != size:
+            raise ValueError(f"{name} has length {arr.shape[0]}, expected {size}")
+        if not np.isfinite(arr).all() or np.any(arr <= 0):
+            raise ValueError(f"{name} must contain finite positive masses")
+        return arr / arr.sum()
+
+    a = _weights(weight_x, m, "weight_x")
+    b = _weights(weight_y, n, "weight_y")
 
     X_np = X.detach().cpu().numpy().astype(np.float64)
     Y_np = Y.detach().cpu().numpy().astype(np.float64)
 
     if p == 1:
         M = ot.dist(X_np, Y_np, metric="euclidean")
-        return float(ot.emd2(a, b, M))
     elif p == 2:
         M = ot.dist(X_np, Y_np, metric="sqeuclidean")
-        return float(np.sqrt(ot.emd2(a, b, M)))
     else:
         raise ValueError(f"Unsupported p={p}, only 1 or 2")
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        value = float(ot.emd2(a, b, M, numItermax=int(num_iter_max)))
+        unconverged = [w for w in caught if "numItermax" in str(w.message)]
+    for w in caught:
+        if w not in unconverged:
+            warnings.warn_explicit(w.message, w.category, w.filename, w.lineno)
+    if unconverged:
+        raise RuntimeError(
+            f"exact W_{p} did not converge at numItermax={num_iter_max} for "
+            f"m={m}, n={n}; the returned value would be biased high. Raise the "
+            "cap or score on fewer cells."
+        )
+    return value if p == 1 else float(np.sqrt(value))
 
 
 def compute_all_distributional_metrics(
@@ -208,6 +253,11 @@ def compute_all_distributional_metrics(
     sinkhorn_epsilon: float = 0.05,
     sinkhorn_iters: int = 100,
     max_samples_for_exact: int = 2000,
+    weight_pred: torch.Tensor | None = None,
+    weight_true: torch.Tensor | None = None,
+    pred_mass_per_source: torch.Tensor | np.ndarray | None = None,
+    source_total_mass: float | None = None,
+    target_total_mass: float | None = None,
 ) -> dict[str, float]:
     """Compute all distribution-level metrics between pred and true populations.
 
@@ -223,7 +273,14 @@ def compute_all_distributional_metrics(
     with torch.no_grad():
         mmd2 = float(mmd2_unbiased_multi_sigma(X_pred, Y_true, scales=mmd_scales).item())
         sinkhorn = float(
-            sinkhorn_w2(X_pred, Y_true, epsilon=sinkhorn_epsilon, num_iters=sinkhorn_iters).item()
+            sinkhorn_w2(
+                X_pred,
+                Y_true,
+                epsilon=sinkhorn_epsilon,
+                num_iters=sinkhorn_iters,
+                weight_x=weight_pred,
+                weight_y=weight_true,
+            ).item()
         )
 
         # Exact W1/W2 on subsample if needed
@@ -232,17 +289,82 @@ def compute_all_distributional_metrics(
             idx_p = torch.randperm(m, device=X_pred.device)[:max_samples_for_exact]
             idx_t = torch.randperm(n, device=Y_true.device)[:max_samples_for_exact]
             X_sub, Y_sub = X_pred[idx_p], Y_true[idx_t]
+            weight_pred_sub = None if weight_pred is None else weight_pred[idx_p]
+            weight_true_sub = None if weight_true is None else weight_true[idx_t]
         else:
             X_sub, Y_sub = X_pred, Y_true
+            weight_pred_sub = weight_pred
+            weight_true_sub = weight_true
 
-        w1 = exact_w_pq(X_sub, Y_sub, p=1)
-        w2 = exact_w_pq(X_sub, Y_sub, p=2)
+        w1 = exact_w_pq(
+            X_sub,
+            Y_sub,
+            p=1,
+            weight_x=weight_pred_sub,
+            weight_y=weight_true_sub,
+        )
+        w2 = exact_w_pq(
+            X_sub,
+            Y_sub,
+            p=2,
+            weight_x=weight_pred_sub,
+            weight_y=weight_true_sub,
+        )
 
-    return {
+    result = {
         "mmd2": mmd2,
         "sinkhorn_w2": sinkhorn,
         "w1": w1,
         "w2": w2,
+    }
+    if pred_mass_per_source is not None:
+        if source_total_mass is None or target_total_mass is None:
+            raise ValueError(
+                "source_total_mass and target_total_mass are required with "
+                "pred_mass_per_source"
+            )
+        result.update(
+            mass_metrics(
+                pred_mass_per_source,
+                source_total_mass=source_total_mass,
+                target_total_mass=target_total_mass,
+            )
+        )
+    return result
+
+
+def mass_metrics(
+    pred_mass_per_source: torch.Tensor | np.ndarray,
+    *,
+    source_total_mass: float,
+    target_total_mass: float,
+) -> dict[str, float]:
+    """Compute total-mass variation and relative mass error.
+
+    Per-source masses are defined relative to unit source-cell mass, so their
+    mean is the predicted target/source total-mass ratio.
+    """
+    if source_total_mass <= 0 or target_total_mass <= 0:
+        raise ValueError("source_total_mass and target_total_mass must be positive")
+    if isinstance(pred_mass_per_source, torch.Tensor):
+        pred = pred_mass_per_source.detach().cpu().numpy()
+    else:
+        pred = np.asarray(pred_mass_per_source)
+    pred = pred.astype(np.float64, copy=False).reshape(-1)
+    if pred.size == 0:
+        raise ValueError("pred_mass_per_source must not be empty")
+    if not np.isfinite(pred).all() or np.any(pred <= 0):
+        raise ValueError("pred_mass_per_source must contain finite positive masses")
+
+    pred_relative_mass = float(pred.mean())
+    true_relative_mass = float(target_total_mass) / float(source_total_mass)
+    tmv = abs(pred_relative_mass - true_relative_mass)
+    rme = tmv / true_relative_mass
+    return {
+        "pred_relative_mass": pred_relative_mass,
+        "true_relative_mass": true_relative_mass,
+        "tmv": float(tmv),
+        "rme": float(rme),
     }
 
 
@@ -308,6 +430,7 @@ def compute_branchsbm_style_metrics(
     n_top_pcs: int = 2,
     mmd_sigma_list: Sequence[float] = (0.01, 0.1, 1.0, 10.0, 100.0),
     seed: int = 42,
+    skip_w1: bool = False,
 ) -> dict[str, float]:
     """BranchSBM-style evaluation protocol (matches paper Table 2/3).
 
@@ -317,6 +440,11 @@ def compute_branchsbm_style_metrics(
       - MMD computed on FULL dimensions (biased, fixed σ_list)
       - Repeat n_trials times with different random subsamples
       - Report mean ± std
+
+    ``skip_w1`` drops the two exact W1 solves per trial. They are the same cost
+    as the W2 solves and are unused by callers that report W2 and MMD, which
+    roughly halves the wall clock on large clouds. The W1 keys are absent from
+    the result rather than present and wrong.
 
     Returns dict with keys prefixed `branchsbm_`:
       - branchsbm_w1_top2_mean / _std: W1 on top-N PCs (paper metric)
@@ -348,11 +476,13 @@ def compute_branchsbm_style_metrics(
             # W1/W2 on top-k PCs
             X_top = X_sub[:, :k]
             Y_top = Y_sub[:, :k]
-            w1_top_trials.append(exact_w_pq(X_top, Y_top, p=1))
+            if not skip_w1:
+                w1_top_trials.append(exact_w_pq(X_top, Y_top, p=1))
             w2_top_trials.append(exact_w_pq(X_top, Y_top, p=2))
 
             # W1/W2 on full dims (BranchSBM "_full" variant, also stored)
-            w1_full_trials.append(exact_w_pq(X_sub, Y_sub, p=1))
+            if not skip_w1:
+                w1_full_trials.append(exact_w_pq(X_sub, Y_sub, p=1))
             w2_full_trials.append(exact_w_pq(X_sub, Y_sub, p=2))
 
             # MMD on full dims (biased, fixed σ)
@@ -367,26 +497,28 @@ def compute_branchsbm_style_metrics(
                 return float(a.mean()), float(a.std(ddof=1))
             return float(a.mean()), 0.0
 
-        w1_top_m, w1_top_s = _ms(w1_top_trials)
         w2_top_m, w2_top_s = _ms(w2_top_trials)
-        w1_full_m, w1_full_s = _ms(w1_full_trials)
         w2_full_m, w2_full_s = _ms(w2_full_trials)
         mmd_m, mmd_s = _ms(mmd_trials)
 
-    return {
-        f"branchsbm_w1_top{k}_mean": w1_top_m,
-        f"branchsbm_w1_top{k}_std": w1_top_s,
+    out = {
         f"branchsbm_w2_top{k}_mean": w2_top_m,
         f"branchsbm_w2_top{k}_std": w2_top_s,
         "branchsbm_mmd_full_mean": mmd_m,
         "branchsbm_mmd_full_std": mmd_s,
-        "branchsbm_w1_full_mean": w1_full_m,
-        "branchsbm_w1_full_std": w1_full_s,
         "branchsbm_w2_full_mean": w2_full_m,
         "branchsbm_w2_full_std": w2_full_s,
         "n_trials": n_trials,
         "n_subsample": n_min,
     }
+    if not skip_w1:
+        w1_top_m, w1_top_s = _ms(w1_top_trials)
+        w1_full_m, w1_full_s = _ms(w1_full_trials)
+        out[f"branchsbm_w1_top{k}_mean"] = w1_top_m
+        out[f"branchsbm_w1_top{k}_std"] = w1_top_s
+        out["branchsbm_w1_full_mean"] = w1_full_m
+        out["branchsbm_w1_full_std"] = w1_full_s
+    return out
 
 
 def compute_dual_protocol_metrics(
@@ -400,6 +532,11 @@ def compute_dual_protocol_metrics(
     sinkhorn_iters: int = 100,
     max_samples_for_exact: int = 2000,
     seed: int = 42,
+    weight_pred: torch.Tensor | None = None,
+    weight_true: torch.Tensor | None = None,
+    pred_mass_per_source: torch.Tensor | np.ndarray | None = None,
+    source_total_mass: float | None = None,
+    target_total_mass: float | None = None,
 ) -> dict[str, float]:
     """Compute BOTH evaluation protocols side-by-side.
 
@@ -422,6 +559,11 @@ def compute_dual_protocol_metrics(
         sinkhorn_epsilon=sinkhorn_epsilon,
         sinkhorn_iters=sinkhorn_iters,
         max_samples_for_exact=max_samples_for_exact,
+        weight_pred=weight_pred,
+        weight_true=weight_true,
+        pred_mass_per_source=pred_mass_per_source,
+        source_total_mass=source_total_mass,
+        target_total_mass=target_total_mass,
     )
     ours = {f"ours_{k}": v for k, v in ours_raw.items()}
     # Rename for clarity:

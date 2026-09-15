@@ -6,7 +6,7 @@ across larger runs and workflow managers.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 
@@ -29,9 +29,13 @@ class ModelRecipe:
     wdit_curl_time_embedding: str = "same"
     wdit_curl_time_delta_transform: str = "normalized"
     wdit_curl_time_delta_scale: float | None = None
+    dit_time_embedding: str | None = None
+    dit_time_delta_transform: str | None = None
+    dit_time_delta_scale: float | None = None
+    dit_mean_prediction: str | None = None
 
     def to_cfg(self) -> dict[str, Any]:
-        return {
+        cfg = {
             "dit_size": self.dit_size,
             "state_chunk_dim": self.state_chunk_dim,
             "learned_state_tokens": self.learned_state_tokens,
@@ -50,6 +54,12 @@ class ModelRecipe:
             "wdit_curl_time_delta_transform": self.wdit_curl_time_delta_transform,
             "wdit_curl_time_delta_scale": self.wdit_curl_time_delta_scale,
         }
+        # Omit inactive options so every existing serialized recipe is unchanged.
+        for key in ("dit_time_embedding", "dit_time_delta_transform", "dit_time_delta_scale", "dit_mean_prediction"):
+            value = getattr(self, key)
+            if value is not None:
+                cfg[key] = value
+        return cfg
 
 
 @dataclass(frozen=True)
@@ -629,6 +639,66 @@ EXPERIMENTS: dict[str, ExperimentSpec] = {
         ),
         split=SplitRecipe(split_policy="per_timepoint", split_ratios=(0.7, 0.1, 0.2)),
     ),
+    "g2a_m10_wdit_time2vecu_lowfreqcurl_uncertainty_nommd_adamw": ExperimentSpec(
+        name="g2a_m10_wdit_time2vecu_lowfreqcurl_uncertainty_nommd_adamw",
+        method="m10",
+        description="Selected W-DiT with the MMD population-matching loss disabled.",
+        epochs=5000,
+        save_checkpoint=True,
+        model=ModelRecipe(
+            dit_size="tiny",
+            waddington_dit=True,
+            curl_rank=16,
+            wdit_curl_time_mode="separate",
+            wdit_time_embedding="time2vec",
+            wdit_time_delta_transform="normalized",
+            wdit_curl_time_embedding="bounded_lowfreq_fourier",
+            wdit_curl_time_delta_transform="normalized",
+        ),
+        train=TrainRecipe(
+            batch_size=512,
+            K=8,
+            multi_delta=True,
+            optimizer="adamw",
+            weight_decay=0.01,
+            lr_schedule="warmup_cosine",
+            warmup_frac=0.05,
+            lambda_mmd=0.0,
+            lambda_w2=1.0,
+            loss_balancer="uncertainty",
+        ),
+        split=SplitRecipe(split_policy="per_timepoint", split_ratios=(0.7, 0.1, 0.2)),
+    ),
+    "g2a_m10_wdit_time2vecu_lowfreqcurl_uncertainty_now2_adamw": ExperimentSpec(
+        name="g2a_m10_wdit_time2vecu_lowfreqcurl_uncertainty_now2_adamw",
+        method="m10",
+        description="Selected W-DiT with the Sinkhorn W2 population-matching loss disabled.",
+        epochs=5000,
+        save_checkpoint=True,
+        model=ModelRecipe(
+            dit_size="tiny",
+            waddington_dit=True,
+            curl_rank=16,
+            wdit_curl_time_mode="separate",
+            wdit_time_embedding="time2vec",
+            wdit_time_delta_transform="normalized",
+            wdit_curl_time_embedding="bounded_lowfreq_fourier",
+            wdit_curl_time_delta_transform="normalized",
+        ),
+        train=TrainRecipe(
+            batch_size=512,
+            K=8,
+            multi_delta=True,
+            optimizer="adamw",
+            weight_decay=0.01,
+            lr_schedule="warmup_cosine",
+            warmup_frac=0.05,
+            lambda_mmd=1.0,
+            lambda_w2=0.0,
+            loss_balancer="uncertainty",
+        ),
+        split=SplitRecipe(split_policy="per_timepoint", split_ratios=(0.7, 0.1, 0.2)),
+    ),
     "g2a_m10_wdit_time2vecu_lowfreqcurl_relobralo_adamw": ExperimentSpec(
         name="g2a_m10_wdit_time2vecu_lowfreqcurl_relobralo_adamw",
         method="m10",
@@ -778,6 +848,50 @@ EXPERIMENTS: dict[str, ExperimentSpec] = {
         split=SplitRecipe(split_policy="per_timepoint", split_ratios=(0.7, 0.1, 0.2)),
     ),
 }
+
+
+# Derive architecture comparisons from the selected recipe so that objective,
+# optimizer and data-split fields cannot silently revert to legacy defaults.
+_selected_time_recipe = EXPERIMENTS[
+    "g2a_m10_wdit_time2vecu_lowfreqcurl_uncertainty_adamw"
+]
+_unconstrained_name = "g2a_m10_unconstrained_dit_time2vec_zeronoise_uncertainty_adamw"
+EXPERIMENTS[_unconstrained_name] = replace(
+    _selected_time_recipe,
+    name=_unconstrained_name,
+    description=(
+        "Unconstrained noise-token DiT residual with normalized Time2Vec, "
+        "auxiliary potential and a zero-noise representative for the downhill "
+        "term; selected full objective, not an analytic mean or equal-FLOP ablation."
+    ),
+    model=replace(
+        _selected_time_recipe.model,
+        waddington_dit=False,
+        dit_time_embedding="time2vec",
+        dit_time_delta_transform="normalized",
+        dit_mean_prediction="zero_noise",
+    ),
+)
+for _embedding_name, _embedding in (
+    ("time2vec", "time2vec"),
+    ("lowfreq", "bounded_lowfreq_fourier"),
+):
+    _name = f"g2a_m10_wdit_shared_{_embedding_name}_uncertainty_adamw"
+    EXPERIMENTS[_name] = replace(
+        _selected_time_recipe,
+        name=_name,
+        description=(
+            f"Selected objective with shared {_embedding} potential/curl features; "
+            "a time-parameterization comparison, not equal-FLOP training."
+        ),
+        model=replace(
+            _selected_time_recipe.model,
+            wdit_curl_time_mode="full",
+            wdit_time_embedding=_embedding,
+            wdit_curl_time_embedding="same",
+        ),
+    )
+del _selected_time_recipe, _embedding_name, _embedding, _name
 
 
 def experiment_names() -> list[str]:

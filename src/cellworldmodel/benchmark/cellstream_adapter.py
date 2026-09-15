@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import torch
 
+from cellworldmodel.benchmark.branchsbm_adapter import TimePointAdapter
 from cellworldmodel.training.split_policy import SplitIndices, build_timepoint_splits
 
 
@@ -122,3 +123,28 @@ class CellStreamTimepointAdapter:
 
     def get_intermediate(self, t: float) -> torch.Tensor:
         return self.dataset.get_intermediate(t)
+
+
+class CellStreamSimGrowthAdapter(TimePointAdapter):
+    """CellStream SimData adapter with validated counts and per-cell GT growth."""
+
+    _meta_name = "cellstream_sim_growth"
+
+    def __init__(self, split_ratio: float = 0.8, seed: int = 42):
+        dataset = load_cellstream_dataset("sim", seed=seed)
+        if dataset.real_g is None:
+            raise ValueError("CellStream SimData is missing ground-truth growth")
+
+        self.dataset = dataset
+        self.coords_by_t = dataset.coords_by_t
+        self.timepoints = dataset.timepoints
+        self.dim = dataset.dim
+        self.population_mass_by_t = {
+            float(t): float(len(coords))
+            for t, coords in self.coords_by_t.items()
+        }
+        self.growth_truth_by_t = {
+            float(t): dataset.real_g[np.isclose(dataset.labels, float(t))].copy()
+            for t in self.timepoints
+        }
+        self._init_split(split_ratio, seed)

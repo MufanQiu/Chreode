@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
+import json
 from typing import Sequence
 
 import numpy as np
@@ -19,6 +21,7 @@ class TransitionBatch:
     target_t: float
     source_weight: torch.Tensor | None = None
     target_weight: torch.Tensor | None = None
+    target_mass_ratio: float | None = None
 
 
 class TimepointTransitionSampler:
@@ -40,6 +43,7 @@ class TimepointTransitionSampler:
         reference_target_times: Sequence[float] | None = None,
         growth_scores_by_t: dict[float, np.ndarray] | None = None,
         growth_weight_scale: float = 1.0,
+        population_mass_by_t: dict[float, float] | None = None,
     ) -> None:
         if not hasattr(adapter, "coords_by_t"):
             raise TypeError(f"{type(adapter).__name__} does not expose coords_by_t")
@@ -76,6 +80,17 @@ class TimepointTransitionSampler:
                     f"{scores.shape[0]} vs {self.adapter.coords_by_t[t].shape[0]}"
                 )
         self.growth_weight_scale = float(growth_weight_scale)
+        if population_mass_by_t is None and hasattr(adapter, "population_mass_by_t"):
+            population_mass_by_t = adapter.population_mass_by_t
+        self.population_mass_by_t = {
+            float(t): float(mass)
+            for t, mass in (population_mass_by_t or {}).items()
+        }
+        for t, mass in self.population_mass_by_t.items():
+            if t not in self.adapter.coords_by_t:
+                raise ValueError(f"population mass timepoint={t} not found in adapter")
+            if not np.isfinite(mass) or mass <= 0:
+                raise ValueError(f"population mass must be finite and positive at t={t}")
 
     def _build_pair_probs(self, endpoint_prob: float | None):
         if endpoint_prob is None:
@@ -92,6 +107,30 @@ class TimepointTransitionSampler:
 
     def split_for(self, t: float) -> SplitIndices:
         return self.splits[float(t)]
+
+    def subsample_training(self, fraction: float, *, benchmark: str, seed: int) -> dict:
+        """Restrict both sides of every training transition, preserving held-out pools."""
+        if not 0 < fraction <= 1:
+            raise ValueError("Training fraction must be in (0, 1]")
+        key = json.dumps([benchmark, float(fraction), int(seed)], separators=(",", ":"))
+        rng = np.random.default_rng(int.from_bytes(hashlib.sha256(key.encode()).digest()[:8], "little"))
+        counts = {}
+        for t in sorted(self.splits):
+            split = self.splits[t]
+            if not len(split.train):
+                raise ValueError(f"Empty training pool at timepoint={t}")
+            indices = split.train
+            if fraction < 1:
+                n = max(1, int(np.floor(len(indices) * fraction)))
+                positions = np.sort(rng.choice(len(indices), n, replace=False))
+                indices = indices[positions]
+                self.splits[t] = SplitIndices(indices, split.val, split.test)
+            counts[str(t)] = {
+                "available": len(split.train), "selected": len(indices),
+                "indices": indices.tolist(),
+                "sha256": hashlib.sha256(np.ascontiguousarray(indices).tobytes()).hexdigest(),
+            }
+        return {"fraction": fraction, "rng_key": key, "timepoints": counts}
 
     def get_population(self, t: float, split: str = "all") -> torch.Tensor:
         t = float(t)
@@ -122,6 +161,13 @@ class TimepointTransitionSampler:
         weight = np.exp(float(delta) * float(self.growth_weight_scale) * score)
         return torch.from_numpy(weight.astype(np.float32))
 
+    def target_mass_ratio(self, source_t: float, target_t: float) -> float | None:
+        source_t = float(source_t)
+        target_t = float(target_t)
+        if source_t not in self.population_mass_by_t or target_t not in self.population_mass_by_t:
+            return None
+        return self.population_mass_by_t[target_t] / self.population_mass_by_t[source_t]
+
     def sample_train_batch(self, batch_size: int, rng: np.random.Generator) -> TransitionBatch:
         if self.pair_probs is None:
             pair_idx = int(rng.integers(len(self.pairs)))
@@ -138,6 +184,7 @@ class TimepointTransitionSampler:
             source_t=float(source_t),
             target_t=float(target_t),
             source_weight=self.source_growth_weight(source_t, source_idx, delta),
+            target_mass_ratio=self.target_mass_ratio(source_t, target_t),
         )
 
     def reference_target(self, split: str = "train") -> torch.Tensor:

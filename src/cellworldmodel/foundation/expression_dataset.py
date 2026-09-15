@@ -7,7 +7,7 @@ from pathlib import Path
 import h5py
 import numpy as np
 import pandas as pd
-
+from cellworldmodel.foundation.encoder_input import normalize_mapped_expression
 from cellworldmodel.foundation.h5ad_meta import read_var_names
 
 
@@ -36,7 +36,7 @@ class FoundationExpressionDataset:
         self.target_sum = float(target_sum)
         self._source_to_vocab_cache: dict[str, np.ndarray] = {}
         self._split_leaf_pool_cache: dict[tuple[str, str], np.ndarray] = {}
-        self.n_genes = int(len(self.gene_vocab))
+        self.n_genes = len(self.gene_vocab)
 
     def cell_ids_for_split(self, split: str, leaf_dataset: str | None = None) -> np.ndarray:
         mask = self.cell_index["foundation_split"] == split
@@ -146,9 +146,7 @@ class FoundationExpressionDataset:
             local_indices = group["local_cell_index"].to_numpy(dtype=np.int64)
             x[group_positions] = self._read_file_rows(str(h5ad_path), local_indices)
         if normalize_log1p:
-            sums = x.sum(axis=1, keepdims=True)
-            scale = np.divide(self.target_sum, sums, out=np.zeros_like(sums), where=sums > 0)
-            x = np.log1p(x * scale).astype(np.float32, copy=False)
+            x = normalize_mapped_expression(x, target_sum=self.target_sum)
         return ExpressionBatch(
             x=x,
             cell_ids=rows["global_cell_id"].to_numpy(dtype=np.int64),

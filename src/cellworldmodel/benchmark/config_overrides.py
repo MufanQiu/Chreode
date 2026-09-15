@@ -1,6 +1,8 @@
 """Shared CLI-to-config override helpers for benchmark runners."""
 from __future__ import annotations
 
+import math
+
 
 COMMON_OVERRIDE_KEYS = (
     "hidden_dim",
@@ -11,11 +13,19 @@ COMMON_OVERRIDE_KEYS = (
     "lr",
     "lambda_drift",
     "lambda_down",
+    "lambda_mass",
+    "lambda_growth_energy",
+    "lambda_growth_logvar",
+    "lambda_growth_gauge",
     "loss_balancer",
     "loss_balancer_temperature",
     "loss_balancer_lookback_prob",
     "loss_balancer_alpha",
     "loss_balancer_max_multiplier",
+    "dit_time_embedding",
+    "dit_time_delta_transform",
+    "dit_time_delta_scale",
+    "dit_mean_prediction",
 )
 
 
@@ -86,5 +96,20 @@ def apply_common_overrides(args, cfg: dict) -> None:
         cfg["multi_delta"] = True
     if getattr(args, "md_endpoint_prob", None) is not None:
         cfg["md_endpoint_prob"] = args.md_endpoint_prob
+    if getattr(args, "growth_mode", None) is not None:
+        cfg["growth_mode"] = args.growth_mode
+    if getattr(args, "growth_head_warmup_epochs", None) is not None:
+        cfg["growth_head_warmup_epochs"] = args.growth_head_warmup_epochs
+    if getattr(args, "growth_log_mass_clip", None) is not None:
+        cfg["growth_log_mass_clip"] = args.growth_log_mass_clip
+    if getattr(args, "growth_integration_steps", None) is not None:
+        cfg["growth_integration_steps"] = args.growth_integration_steps
     if getattr(args, "split_policy", None) is not None:
         cfg["split_policy"] = args.split_policy
+    dit_controls = ("dit_time_embedding", "dit_time_delta_transform", "dit_time_delta_scale", "dit_mean_prediction")
+    if any(getattr(args, key, None) is not None for key in dit_controls):
+        if getattr(args, "method", None) not in {"m9", "m10"} or cfg.get("waddington_dit", False):
+            raise ValueError("--dit-* controls require an unconstrained DriftDiT1D recipe (m9/m10, waddington_dit=False)")
+        scale = cfg.get("dit_time_delta_scale")
+        if scale is not None and (not math.isfinite(float(scale)) or float(scale) <= 0):
+            raise ValueError("--dit-time-delta-scale must be finite and positive")

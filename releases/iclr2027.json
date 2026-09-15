@@ -1,0 +1,1191 @@
+{
+  "schema_version": 1,
+  "release": "iclr2027-20260915",
+  "models": {
+    "encoder": {
+      "weights": "models/encoder.pt",
+      "sha256": "1c12feb9e858bda3f87e1bcc7faa9e1088d1b5a71f2dec2eb810fe07115b1e46",
+      "source_sha256": "f98a678008a6542b57bce8daff095718e3b011ee461d39fef19bcdd6a1223d75",
+      "export_signature": "aad02e335b53d852d5cf73c33241abea0605a89cffe1d02e0c82499d1ed65906",
+      "size_bytes": 225994920,
+      "config": {
+        "kind": "encoder",
+        "architecture": "strict_scvi1024",
+        "n_genes": 16485,
+        "latent_dim": 128,
+        "leaf_to_id": {
+          "E-MTAB-6967": 0,
+          "GSE106340": 1,
+          "GSE115943_C1": 2,
+          "GSE115943_C2": 3,
+          "GSE132188": 4,
+          "tome-mouse": 5
+        }
+      }
+    },
+    "dynamics": {
+      "weights": "models/dynamics.pt",
+      "sha256": "b50dc75286a477576bf036a0569aa0b789acad9308aff9d55a742d488ed6e06a",
+      "source_sha256": "706616cfb5a0bee33cb6f896ef675b0b11059dbd144024d1d8ad78f8f642a511",
+      "export_signature": "9e26c70751a8f253e7e9761c82f81d154444741715aca51e46fc8bf84c9c8bd0",
+      "size_bytes": 164890397,
+      "config": {
+        "kind": "dynamics",
+        "method": "m10",
+        "latent_dim": 128,
+        "tau_init": 7.213475204444817,
+        "model_cfg": {
+          "hidden_dim": 512,
+          "n_layers": 3,
+          "time_emb_dim": 64,
+          "dit_size": "small",
+          "waddington_dit": true,
+          "curl_rank": 16,
+          "disable_rope": false,
+          "wdit_curl_update": "additive",
+          "wdit_curl_time_mode": "separate",
+          "wdit_hybrid_delta0": 36.0,
+          "wdit_hybrid_slope": 0.25,
+          "wdit_hard_delta0": 30.0,
+          "wdit_time_embedding": "time2vec",
+          "wdit_time_delta_transform": "normalized",
+          "wdit_time_delta_scale": 19.0,
+          "wdit_curl_time_embedding": "bounded_lowfreq_fourier",
+          "wdit_curl_time_delta_transform": "normalized",
+          "wdit_curl_time_delta_scale": 19.0,
+          "action_dim": 0,
+          "growth_mode": "frozen"
+        }
+      }
+    },
+    "weinreb_seed0": {
+      "weights": "models/weinreb_seed0.pt",
+      "sha256": "25e3fa5a400fb6f6149f5fd2ad4034b6ce9a9f6dcd61b55cce842ad4de79840f",
+      "source_sha256": "1cb9bce14add3c6eab917c0c65a2abd7a4564a36e6a5b857661d5546eb8555d8",
+      "export_signature": "05a2ff9258c14c195b435064101c05e404579e3c76047a8532c7e78a51d40674",
+      "size_bytes": 164891267,
+      "config": {
+        "kind": "dynamics",
+        "method": "m10",
+        "latent_dim": 128,
+        "tau_init": 5.7707801635558535,
+        "model_cfg": {
+          "hidden_dim": 512,
+          "n_layers": 3,
+          "time_emb_dim": 64,
+          "dit_size": "small",
+          "waddington_dit": true,
+          "curl_rank": 16,
+          "disable_rope": false,
+          "wdit_curl_update": "additive",
+          "wdit_curl_time_mode": "separate",
+          "wdit_hybrid_delta0": 36.0,
+          "wdit_hybrid_slope": 0.25,
+          "wdit_hard_delta0": 30.0,
+          "wdit_time_embedding": "time2vec",
+          "wdit_time_delta_transform": "normalized",
+          "wdit_time_delta_scale": 19.0,
+          "wdit_curl_time_embedding": "bounded_lowfreq_fourier",
+          "wdit_curl_time_delta_transform": "normalized",
+          "wdit_curl_time_delta_scale": 19.0,
+          "action_dim": 0,
+          "growth_mode": "frozen"
+        }
+      }
+    },
+    "weinreb_seed1": {
+      "weights": "models/weinreb_seed1.pt",
+      "sha256": "7baf8ffcfd3549318f5371a45514c89d385faf35ea09aa6f085d4038fc2ec8aa",
+      "source_sha256": "4c0eb80fcc1ef8b8e058b29e6c1e04e6a26ff2e30394c833453eb4f34f15ca45",
+      "export_signature": "ce80a06ab1287f5f86cb6e53aa198b5491f7ae5421a3c08d6297e5797fcef170",
+      "size_bytes": 164891267,
+      "config": {
+        "kind": "dynamics",
+        "method": "m10",
+        "latent_dim": 128,
+        "tau_init": 5.7707801635558535,
+        "model_cfg": {
+          "hidden_dim": 512,
+          "n_layers": 3,
+          "time_emb_dim": 64,
+          "dit_size": "small",
+          "waddington_dit": true,
+          "curl_rank": 16,
+          "disable_rope": false,
+          "wdit_curl_update": "additive",
+          "wdit_curl_time_mode": "separate",
+          "wdit_hybrid_delta0": 36.0,
+          "wdit_hybrid_slope": 0.25,
+          "wdit_hard_delta0": 30.0,
+          "wdit_time_embedding": "time2vec",
+          "wdit_time_delta_transform": "normalized",
+          "wdit_time_delta_scale": 19.0,
+          "wdit_curl_time_embedding": "bounded_lowfreq_fourier",
+          "wdit_curl_time_delta_transform": "normalized",
+          "wdit_curl_time_delta_scale": 19.0,
+          "action_dim": 0,
+          "growth_mode": "frozen"
+        }
+      }
+    },
+    "weinreb_seed2": {
+      "weights": "models/weinreb_seed2.pt",
+      "sha256": "61a2e9d08ca28562244a1e3032db9be211971da8865435df85eee168fe9671c6",
+      "source_sha256": "c0031066218d78c3ff8538532aa07d568526c0a62a58c2760b709320634d3615",
+      "export_signature": "264fb559557cfd439c8142c1f004176c43922d630d7419d57195efceb4d1c815",
+      "size_bytes": 164891267,
+      "config": {
+        "kind": "dynamics",
+        "method": "m10",
+        "latent_dim": 128,
+        "tau_init": 5.7707801635558535,
+        "model_cfg": {
+          "hidden_dim": 512,
+          "n_layers": 3,
+          "time_emb_dim": 64,
+          "dit_size": "small",
+          "waddington_dit": true,
+          "curl_rank": 16,
+          "disable_rope": false,
+          "wdit_curl_update": "additive",
+          "wdit_curl_time_mode": "separate",
+          "wdit_hybrid_delta0": 36.0,
+          "wdit_hybrid_slope": 0.25,
+          "wdit_hard_delta0": 30.0,
+          "wdit_time_embedding": "time2vec",
+          "wdit_time_delta_transform": "normalized",
+          "wdit_time_delta_scale": 19.0,
+          "wdit_curl_time_embedding": "bounded_lowfreq_fourier",
+          "wdit_curl_time_delta_transform": "normalized",
+          "wdit_curl_time_delta_scale": 19.0,
+          "action_dim": 0,
+          "growth_mode": "frozen"
+        }
+      }
+    },
+    "veres_seed0": {
+      "weights": "models/veres_seed0.pt",
+      "sha256": "90ca5f9485b5c554e6b70bb7ff5feec10aac58b2da80ea8be01893a0f76fd256",
+      "source_sha256": "9b975d198ba5807dabcc79f9425b7028a1deecb815194e31bfa435f82a8d08f2",
+      "export_signature": "9958f1041a2ca5d88ff747788fd30978111419132f51963f62c13443dca93137",
+      "size_bytes": 164890919,
+      "config": {
+        "kind": "dynamics",
+        "method": "m10",
+        "latent_dim": 128,
+        "tau_init": 10.098865286222745,
+        "model_cfg": {
+          "hidden_dim": 512,
+          "n_layers": 3,
+          "time_emb_dim": 64,
+          "dit_size": "small",
+          "waddington_dit": true,
+          "curl_rank": 16,
+          "disable_rope": false,
+          "wdit_curl_update": "additive",
+          "wdit_curl_time_mode": "separate",
+          "wdit_hybrid_delta0": 36.0,
+          "wdit_hybrid_slope": 0.25,
+          "wdit_hard_delta0": 30.0,
+          "wdit_time_embedding": "time2vec",
+          "wdit_time_delta_transform": "normalized",
+          "wdit_time_delta_scale": 19.0,
+          "wdit_curl_time_embedding": "bounded_lowfreq_fourier",
+          "wdit_curl_time_delta_transform": "normalized",
+          "wdit_curl_time_delta_scale": 19.0,
+          "action_dim": 0,
+          "growth_mode": "frozen"
+        }
+      }
+    },
+    "veres_seed1": {
+      "weights": "models/veres_seed1.pt",
+      "sha256": "7a0c3d334004e4c9d5808f4cee550d74733d52d58dba769f2fe9708351686e1b",
+      "source_sha256": "3c4fd43d995450c5353350a2618b92ab2b26442d14a9f2df1fb6ef43338f85bd",
+      "export_signature": "cc7f38d9747f3d0b066a3e75ae1e5d3159c7bb1bb657f5b9cf3710e234a2b2f0",
+      "size_bytes": 164890919,
+      "config": {
+        "kind": "dynamics",
+        "method": "m10",
+        "latent_dim": 128,
+        "tau_init": 10.098865286222745,
+        "model_cfg": {
+          "hidden_dim": 512,
+          "n_layers": 3,
+          "time_emb_dim": 64,
+          "dit_size": "small",
+          "waddington_dit": true,
+          "curl_rank": 16,
+          "disable_rope": false,
+          "wdit_curl_update": "additive",
+          "wdit_curl_time_mode": "separate",
+          "wdit_hybrid_delta0": 36.0,
+          "wdit_hybrid_slope": 0.25,
+          "wdit_hard_delta0": 30.0,
+          "wdit_time_embedding": "time2vec",
+          "wdit_time_delta_transform": "normalized",
+          "wdit_time_delta_scale": 19.0,
+          "wdit_curl_time_embedding": "bounded_lowfreq_fourier",
+          "wdit_curl_time_delta_transform": "normalized",
+          "wdit_curl_time_delta_scale": 19.0,
+          "action_dim": 0,
+          "growth_mode": "frozen"
+        }
+      }
+    },
+    "veres_seed2": {
+      "weights": "models/veres_seed2.pt",
+      "sha256": "84aeae2951130adbc734961ec097d26abfbc417d4da3673cc089374dbda94e68",
+      "source_sha256": "646a010ccbea671aeae5acd42545070f274a4123c9abe3d3a5fdce593955059f",
+      "export_signature": "e4553c31655aded697757045a18efc6eb2edcce3a3ed7254d656068708bc729c",
+      "size_bytes": 164890919,
+      "config": {
+        "kind": "dynamics",
+        "method": "m10",
+        "latent_dim": 128,
+        "tau_init": 10.098865286222745,
+        "model_cfg": {
+          "hidden_dim": 512,
+          "n_layers": 3,
+          "time_emb_dim": 64,
+          "dit_size": "small",
+          "waddington_dit": true,
+          "curl_rank": 16,
+          "disable_rope": false,
+          "wdit_curl_update": "additive",
+          "wdit_curl_time_mode": "separate",
+          "wdit_hybrid_delta0": 36.0,
+          "wdit_hybrid_slope": 0.25,
+          "wdit_hard_delta0": 30.0,
+          "wdit_time_embedding": "time2vec",
+          "wdit_time_delta_transform": "normalized",
+          "wdit_time_delta_scale": 19.0,
+          "wdit_curl_time_embedding": "bounded_lowfreq_fourier",
+          "wdit_curl_time_delta_transform": "normalized",
+          "wdit_curl_time_delta_scale": 19.0,
+          "action_dim": 0,
+          "growth_mode": "frozen"
+        }
+      }
+    },
+    "zesta_seed0": {
+      "weights": "models/zesta_seed0.pt",
+      "sha256": "2ba588b6797a92c3659ffcca59aeaedd7b74f3deec5ccfdfd84d18337cd9143a",
+      "source_sha256": "9b484aa79b0244417fbbef480a8a2aed39b0facf6c082345649fd202442a8d49",
+      "export_signature": "55beefee24a605900096d15c63a29e0497dcc4c40d50a9dd74d3fc00ad2d5f5b",
+      "size_bytes": 164890919,
+      "config": {
+        "kind": "dynamics",
+        "method": "m10",
+        "latent_dim": 128,
+        "tau_init": 29.863787346401544,
+        "model_cfg": {
+          "hidden_dim": 512,
+          "n_layers": 3,
+          "time_emb_dim": 64,
+          "dit_size": "small",
+          "waddington_dit": true,
+          "curl_rank": 16,
+          "disable_rope": false,
+          "wdit_curl_update": "additive",
+          "wdit_curl_time_mode": "separate",
+          "wdit_hybrid_delta0": 36.0,
+          "wdit_hybrid_slope": 0.25,
+          "wdit_hard_delta0": 30.0,
+          "wdit_time_embedding": "time2vec",
+          "wdit_time_delta_transform": "normalized",
+          "wdit_time_delta_scale": 19.0,
+          "wdit_curl_time_embedding": "bounded_lowfreq_fourier",
+          "wdit_curl_time_delta_transform": "normalized",
+          "wdit_curl_time_delta_scale": 19.0,
+          "action_dim": 0,
+          "growth_mode": "frozen"
+        }
+      }
+    },
+    "zesta_seed1": {
+      "weights": "models/zesta_seed1.pt",
+      "sha256": "1715327b8c8d353f36350d8fd7cc7fe04a71d5a4678dd146aca70f7b44f762cd",
+      "source_sha256": "16ef018a28f7a8411ffcac1a31d2dd19ee44066f43461344395d75c912ba0daa",
+      "export_signature": "4997f8e1171da9a76a7f9e20bbfbf87078e427006c5a7b10bf802baf90038c72",
+      "size_bytes": 164890919,
+      "config": {
+        "kind": "dynamics",
+        "method": "m10",
+        "latent_dim": 128,
+        "tau_init": 29.863787346401544,
+        "model_cfg": {
+          "hidden_dim": 512,
+          "n_layers": 3,
+          "time_emb_dim": 64,
+          "dit_size": "small",
+          "waddington_dit": true,
+          "curl_rank": 16,
+          "disable_rope": false,
+          "wdit_curl_update": "additive",
+          "wdit_curl_time_mode": "separate",
+          "wdit_hybrid_delta0": 36.0,
+          "wdit_hybrid_slope": 0.25,
+          "wdit_hard_delta0": 30.0,
+          "wdit_time_embedding": "time2vec",
+          "wdit_time_delta_transform": "normalized",
+          "wdit_time_delta_scale": 19.0,
+          "wdit_curl_time_embedding": "bounded_lowfreq_fourier",
+          "wdit_curl_time_delta_transform": "normalized",
+          "wdit_curl_time_delta_scale": 19.0,
+          "action_dim": 0,
+          "growth_mode": "frozen"
+        }
+      }
+    },
+    "zesta_seed2": {
+      "weights": "models/zesta_seed2.pt",
+      "sha256": "301c32d2582d5416ab015180ebe9e31962e0d774cad183d0f1f9bc7e52671ebf",
+      "source_sha256": "0f25769a835e198effcaf8f6be2541fbaa22c9d24caecb6b8573b25c0f6351a4",
+      "export_signature": "d7c0043dd2c2378710118a5b7225d1d30ea93748c9250b76e6901d49817693bc",
+      "size_bytes": 164890919,
+      "config": {
+        "kind": "dynamics",
+        "method": "m10",
+        "latent_dim": 128,
+        "tau_init": 29.863787346401544,
+        "model_cfg": {
+          "hidden_dim": 512,
+          "n_layers": 3,
+          "time_emb_dim": 64,
+          "dit_size": "small",
+          "waddington_dit": true,
+          "curl_rank": 16,
+          "disable_rope": false,
+          "wdit_curl_update": "additive",
+          "wdit_curl_time_mode": "separate",
+          "wdit_hybrid_delta0": 36.0,
+          "wdit_hybrid_slope": 0.25,
+          "wdit_hard_delta0": 30.0,
+          "wdit_time_embedding": "time2vec",
+          "wdit_time_delta_transform": "normalized",
+          "wdit_time_delta_scale": 19.0,
+          "wdit_curl_time_embedding": "bounded_lowfreq_fourier",
+          "wdit_curl_time_delta_transform": "normalized",
+          "wdit_curl_time_delta_scale": 19.0,
+          "action_dim": 0,
+          "growth_mode": "frozen"
+        }
+      }
+    },
+    "cytokine_chreode_tuned_seed0": {
+      "weights": "models/cytokine_chreode_tuned_seed0.pt",
+      "sha256": "3323aec4ef4e2b655281f73aabb757120f5b47c85c84401e64b6849185886f51",
+      "source_sha256": "c855bedd7bf8f87a88b28c7c7049ce90e8733cb10d93fb68d3a6ac59c72203a8",
+      "export_signature": "123424f179cf871219dfac0bd22c5c219be830b9e65d6aab9516d9d107f04e51",
+      "size_bytes": 165462429,
+      "config": {
+        "kind": "intervention",
+        "base": {
+          "kind": "dynamics",
+          "method": "m10",
+          "latent_dim": 128,
+          "tau_init": 7.213475204444817,
+          "model_cfg": {
+            "hidden_dim": 512,
+            "n_layers": 3,
+            "time_emb_dim": 64,
+            "dit_size": "small",
+            "waddington_dit": true,
+            "curl_rank": 16,
+            "disable_rope": false,
+            "wdit_curl_update": "additive",
+            "wdit_curl_time_mode": "separate",
+            "wdit_hybrid_delta0": 36.0,
+            "wdit_hybrid_slope": 0.25,
+            "wdit_hard_delta0": 30.0,
+            "wdit_time_embedding": "time2vec",
+            "wdit_time_delta_transform": "normalized",
+            "wdit_time_delta_scale": 19.0,
+            "wdit_curl_time_embedding": "bounded_lowfreq_fourier",
+            "wdit_curl_time_delta_transform": "normalized",
+            "wdit_curl_time_delta_scale": 19.0,
+            "action_dim": 0,
+            "growth_mode": "frozen"
+          }
+        },
+        "condition_to_id": {
+          "Epo": 0,
+          "G-csf": 1,
+          "M-csf": 2,
+          "SCF": 3,
+          "full cocktail": 4
+        },
+        "adapter": {
+          "k_programs": 8,
+          "basis_hidden": 64,
+          "delta_conditioned": true,
+          "emb_dim": 32,
+          "kick_hidden": 128
+        },
+        "tune_base": true,
+        "shared_condition": false
+      }
+    },
+    "cytokine_scratch_tuned_seed0": {
+      "weights": "models/cytokine_scratch_tuned_seed0.pt",
+      "sha256": "29558693829137c1f3096544fec35121c92eab25fe2b72fae7dcb4ddaa6dd512",
+      "source_sha256": "4f2d01b679acafc1ffa7601447e0627e4b4e9f351b9d358ef9d7fd4f35e0ee68",
+      "export_signature": "eed2707b887af689a1406ae5780bfae898e070410476a325d96b5581cfa6b555",
+      "size_bytes": 165462429,
+      "config": {
+        "kind": "intervention",
+        "base": {
+          "kind": "dynamics",
+          "method": "m10",
+          "latent_dim": 128,
+          "tau_init": 7.213475204444817,
+          "model_cfg": {
+            "hidden_dim": 512,
+            "n_layers": 3,
+            "time_emb_dim": 64,
+            "dit_size": "small",
+            "waddington_dit": true,
+            "curl_rank": 16,
+            "disable_rope": false,
+            "wdit_curl_update": "additive",
+            "wdit_curl_time_mode": "separate",
+            "wdit_hybrid_delta0": 36.0,
+            "wdit_hybrid_slope": 0.25,
+            "wdit_hard_delta0": 30.0,
+            "wdit_time_embedding": "time2vec",
+            "wdit_time_delta_transform": "normalized",
+            "wdit_time_delta_scale": 19.0,
+            "wdit_curl_time_embedding": "bounded_lowfreq_fourier",
+            "wdit_curl_time_delta_transform": "normalized",
+            "wdit_curl_time_delta_scale": 19.0,
+            "action_dim": 0,
+            "growth_mode": "frozen"
+          }
+        },
+        "condition_to_id": {
+          "Epo": 0,
+          "G-csf": 1,
+          "M-csf": 2,
+          "SCF": 3,
+          "full cocktail": 4
+        },
+        "adapter": {
+          "k_programs": 8,
+          "basis_hidden": 64,
+          "delta_conditioned": true,
+          "emb_dim": 32,
+          "kick_hidden": 128
+        },
+        "tune_base": true,
+        "shared_condition": false
+      }
+    },
+    "cytokine_noaction_tuned_seed0": {
+      "weights": "models/cytokine_noaction_tuned_seed0.pt",
+      "sha256": "8dc35871ab683fa7ccc718b993a4b3c020862881ea945cee1d4b94633b40a339",
+      "source_sha256": "77d156ecbd5bc3c4d28fea8832f0bf7d799e903d31e2ed8d422e00e9cf3dddfc",
+      "export_signature": "8de11a3aeb0ca9051490f35dd92ff1992cf2818b12f141cc8f475ef6c0a9e872",
+      "size_bytes": 165462659,
+      "config": {
+        "kind": "intervention",
+        "base": {
+          "kind": "dynamics",
+          "method": "m10",
+          "latent_dim": 128,
+          "tau_init": 7.213475204444817,
+          "model_cfg": {
+            "hidden_dim": 512,
+            "n_layers": 3,
+            "time_emb_dim": 64,
+            "dit_size": "small",
+            "waddington_dit": true,
+            "curl_rank": 16,
+            "disable_rope": false,
+            "wdit_curl_update": "additive",
+            "wdit_curl_time_mode": "separate",
+            "wdit_hybrid_delta0": 36.0,
+            "wdit_hybrid_slope": 0.25,
+            "wdit_hard_delta0": 30.0,
+            "wdit_time_embedding": "time2vec",
+            "wdit_time_delta_transform": "normalized",
+            "wdit_time_delta_scale": 19.0,
+            "wdit_curl_time_embedding": "bounded_lowfreq_fourier",
+            "wdit_curl_time_delta_transform": "normalized",
+            "wdit_curl_time_delta_scale": 19.0,
+            "action_dim": 0,
+            "growth_mode": "frozen"
+          }
+        },
+        "condition_to_id": {
+          "Epo": 0,
+          "G-csf": 1,
+          "M-csf": 2,
+          "SCF": 3,
+          "full cocktail": 4
+        },
+        "adapter": {
+          "k_programs": 8,
+          "basis_hidden": 64,
+          "delta_conditioned": true,
+          "emb_dim": 32,
+          "kick_hidden": 128
+        },
+        "tune_base": true,
+        "shared_condition": true
+      }
+    },
+    "cytokine_chreode_tuned_seed1": {
+      "weights": "models/cytokine_chreode_tuned_seed1.pt",
+      "sha256": "db810b8a06481dbcf782d7d36efed0fc411a90d403d1c059c9691d42db066c94",
+      "source_sha256": "909f41da9b662904c11c259116fa4aef0a264f78ce584d1c7a3a76267d95a0fd",
+      "export_signature": "95c96a44c0d3a46bc3a0375c6963093018544540be33fceb1ac47f3c28f7788b",
+      "size_bytes": 165462429,
+      "config": {
+        "kind": "intervention",
+        "base": {
+          "kind": "dynamics",
+          "method": "m10",
+          "latent_dim": 128,
+          "tau_init": 7.213475204444817,
+          "model_cfg": {
+            "hidden_dim": 512,
+            "n_layers": 3,
+            "time_emb_dim": 64,
+            "dit_size": "small",
+            "waddington_dit": true,
+            "curl_rank": 16,
+            "disable_rope": false,
+            "wdit_curl_update": "additive",
+            "wdit_curl_time_mode": "separate",
+            "wdit_hybrid_delta0": 36.0,
+            "wdit_hybrid_slope": 0.25,
+            "wdit_hard_delta0": 30.0,
+            "wdit_time_embedding": "time2vec",
+            "wdit_time_delta_transform": "normalized",
+            "wdit_time_delta_scale": 19.0,
+            "wdit_curl_time_embedding": "bounded_lowfreq_fourier",
+            "wdit_curl_time_delta_transform": "normalized",
+            "wdit_curl_time_delta_scale": 19.0,
+            "action_dim": 0,
+            "growth_mode": "frozen"
+          }
+        },
+        "condition_to_id": {
+          "Epo": 0,
+          "G-csf": 1,
+          "M-csf": 2,
+          "SCF": 3,
+          "full cocktail": 4
+        },
+        "adapter": {
+          "k_programs": 8,
+          "basis_hidden": 64,
+          "delta_conditioned": true,
+          "emb_dim": 32,
+          "kick_hidden": 128
+        },
+        "tune_base": true,
+        "shared_condition": false
+      }
+    },
+    "cytokine_scratch_tuned_seed1": {
+      "weights": "models/cytokine_scratch_tuned_seed1.pt",
+      "sha256": "c305fc2cf9a4a32d93739b4893193cbbfd576e913c336e20821f4ebd220842da",
+      "source_sha256": "4de0e6fd9b38537d4e5ef51eaa304ac4dc10d01483917f1bd1daa542cd0bd324",
+      "export_signature": "dfdc6bd6ccdc81410c76f75b5341083a28a081b5a5a036bdd214ba36e934f707",
+      "size_bytes": 165462429,
+      "config": {
+        "kind": "intervention",
+        "base": {
+          "kind": "dynamics",
+          "method": "m10",
+          "latent_dim": 128,
+          "tau_init": 7.213475204444817,
+          "model_cfg": {
+            "hidden_dim": 512,
+            "n_layers": 3,
+            "time_emb_dim": 64,
+            "dit_size": "small",
+            "waddington_dit": true,
+            "curl_rank": 16,
+            "disable_rope": false,
+            "wdit_curl_update": "additive",
+            "wdit_curl_time_mode": "separate",
+            "wdit_hybrid_delta0": 36.0,
+            "wdit_hybrid_slope": 0.25,
+            "wdit_hard_delta0": 30.0,
+            "wdit_time_embedding": "time2vec",
+            "wdit_time_delta_transform": "normalized",
+            "wdit_time_delta_scale": 19.0,
+            "wdit_curl_time_embedding": "bounded_lowfreq_fourier",
+            "wdit_curl_time_delta_transform": "normalized",
+            "wdit_curl_time_delta_scale": 19.0,
+            "action_dim": 0,
+            "growth_mode": "frozen"
+          }
+        },
+        "condition_to_id": {
+          "Epo": 0,
+          "G-csf": 1,
+          "M-csf": 2,
+          "SCF": 3,
+          "full cocktail": 4
+        },
+        "adapter": {
+          "k_programs": 8,
+          "basis_hidden": 64,
+          "delta_conditioned": true,
+          "emb_dim": 32,
+          "kick_hidden": 128
+        },
+        "tune_base": true,
+        "shared_condition": false
+      }
+    },
+    "cytokine_noaction_tuned_seed1": {
+      "weights": "models/cytokine_noaction_tuned_seed1.pt",
+      "sha256": "9a5d7b20b808514e456028e581ccb2abecbe339be64cfd39881f0b3830c51fde",
+      "source_sha256": "cfacbac6fedc64ad247cf20bb8fcdc9543a6c8aada052066a18e6ab9a9f517cd",
+      "export_signature": "6733029f1b6b2082d6a1344b1acc1ebd3125bab68cdf54a6874fae06fbb09063",
+      "size_bytes": 165462659,
+      "config": {
+        "kind": "intervention",
+        "base": {
+          "kind": "dynamics",
+          "method": "m10",
+          "latent_dim": 128,
+          "tau_init": 7.213475204444817,
+          "model_cfg": {
+            "hidden_dim": 512,
+            "n_layers": 3,
+            "time_emb_dim": 64,
+            "dit_size": "small",
+            "waddington_dit": true,
+            "curl_rank": 16,
+            "disable_rope": false,
+            "wdit_curl_update": "additive",
+            "wdit_curl_time_mode": "separate",
+            "wdit_hybrid_delta0": 36.0,
+            "wdit_hybrid_slope": 0.25,
+            "wdit_hard_delta0": 30.0,
+            "wdit_time_embedding": "time2vec",
+            "wdit_time_delta_transform": "normalized",
+            "wdit_time_delta_scale": 19.0,
+            "wdit_curl_time_embedding": "bounded_lowfreq_fourier",
+            "wdit_curl_time_delta_transform": "normalized",
+            "wdit_curl_time_delta_scale": 19.0,
+            "action_dim": 0,
+            "growth_mode": "frozen"
+          }
+        },
+        "condition_to_id": {
+          "Epo": 0,
+          "G-csf": 1,
+          "M-csf": 2,
+          "SCF": 3,
+          "full cocktail": 4
+        },
+        "adapter": {
+          "k_programs": 8,
+          "basis_hidden": 64,
+          "delta_conditioned": true,
+          "emb_dim": 32,
+          "kick_hidden": 128
+        },
+        "tune_base": true,
+        "shared_condition": true
+      }
+    },
+    "cytokine_chreode_tuned_seed2": {
+      "weights": "models/cytokine_chreode_tuned_seed2.pt",
+      "sha256": "230a147766b19915c80ae0afe669d9114b4e0416cc00b12876fcccf1f6ee3171",
+      "source_sha256": "33832b1d62bce262e8675e2f05f91db1f5566b933ee923f3171d35ec5094f669",
+      "export_signature": "05a889ca4c991eaec6345f998df4edf439f5c89ac27c824e6d60e258f567f738",
+      "size_bytes": 165462429,
+      "config": {
+        "kind": "intervention",
+        "base": {
+          "kind": "dynamics",
+          "method": "m10",
+          "latent_dim": 128,
+          "tau_init": 7.213475204444817,
+          "model_cfg": {
+            "hidden_dim": 512,
+            "n_layers": 3,
+            "time_emb_dim": 64,
+            "dit_size": "small",
+            "waddington_dit": true,
+            "curl_rank": 16,
+            "disable_rope": false,
+            "wdit_curl_update": "additive",
+            "wdit_curl_time_mode": "separate",
+            "wdit_hybrid_delta0": 36.0,
+            "wdit_hybrid_slope": 0.25,
+            "wdit_hard_delta0": 30.0,
+            "wdit_time_embedding": "time2vec",
+            "wdit_time_delta_transform": "normalized",
+            "wdit_time_delta_scale": 19.0,
+            "wdit_curl_time_embedding": "bounded_lowfreq_fourier",
+            "wdit_curl_time_delta_transform": "normalized",
+            "wdit_curl_time_delta_scale": 19.0,
+            "action_dim": 0,
+            "growth_mode": "frozen"
+          }
+        },
+        "condition_to_id": {
+          "Epo": 0,
+          "G-csf": 1,
+          "M-csf": 2,
+          "SCF": 3,
+          "full cocktail": 4
+        },
+        "adapter": {
+          "k_programs": 8,
+          "basis_hidden": 64,
+          "delta_conditioned": true,
+          "emb_dim": 32,
+          "kick_hidden": 128
+        },
+        "tune_base": true,
+        "shared_condition": false
+      }
+    },
+    "cytokine_scratch_tuned_seed2": {
+      "weights": "models/cytokine_scratch_tuned_seed2.pt",
+      "sha256": "f46eb42a9e6bf11b7fda9a8a6841737005ade6ebb815146a88bf3158f07345be",
+      "source_sha256": "0c1cd3e331c20f42052a96f1793e8b10e2560182274215fb47b03d7aec2c88e2",
+      "export_signature": "bc2abb043eb430ab5b9d6e02b7e88a53bee3c70875c4ff695471037cbd6f32b4",
+      "size_bytes": 165462429,
+      "config": {
+        "kind": "intervention",
+        "base": {
+          "kind": "dynamics",
+          "method": "m10",
+          "latent_dim": 128,
+          "tau_init": 7.213475204444817,
+          "model_cfg": {
+            "hidden_dim": 512,
+            "n_layers": 3,
+            "time_emb_dim": 64,
+            "dit_size": "small",
+            "waddington_dit": true,
+            "curl_rank": 16,
+            "disable_rope": false,
+            "wdit_curl_update": "additive",
+            "wdit_curl_time_mode": "separate",
+            "wdit_hybrid_delta0": 36.0,
+            "wdit_hybrid_slope": 0.25,
+            "wdit_hard_delta0": 30.0,
+            "wdit_time_embedding": "time2vec",
+            "wdit_time_delta_transform": "normalized",
+            "wdit_time_delta_scale": 19.0,
+            "wdit_curl_time_embedding": "bounded_lowfreq_fourier",
+            "wdit_curl_time_delta_transform": "normalized",
+            "wdit_curl_time_delta_scale": 19.0,
+            "action_dim": 0,
+            "growth_mode": "frozen"
+          }
+        },
+        "condition_to_id": {
+          "Epo": 0,
+          "G-csf": 1,
+          "M-csf": 2,
+          "SCF": 3,
+          "full cocktail": 4
+        },
+        "adapter": {
+          "k_programs": 8,
+          "basis_hidden": 64,
+          "delta_conditioned": true,
+          "emb_dim": 32,
+          "kick_hidden": 128
+        },
+        "tune_base": true,
+        "shared_condition": false
+      }
+    },
+    "cytokine_noaction_tuned_seed2": {
+      "weights": "models/cytokine_noaction_tuned_seed2.pt",
+      "sha256": "708147d6bc5ad2c1f02578fbaf4c650181f19ef1ad3a34fe376ce986abdc62be",
+      "source_sha256": "405a0be1d559e1eaab5779c65e2795166741cb0d0ff9d72a30a678e8acae930b",
+      "export_signature": "1cb7b14488c68a9b57ccb75e72dcdce16383a2389308c4cecb8aa967f80909e3",
+      "size_bytes": 165462659,
+      "config": {
+        "kind": "intervention",
+        "base": {
+          "kind": "dynamics",
+          "method": "m10",
+          "latent_dim": 128,
+          "tau_init": 7.213475204444817,
+          "model_cfg": {
+            "hidden_dim": 512,
+            "n_layers": 3,
+            "time_emb_dim": 64,
+            "dit_size": "small",
+            "waddington_dit": true,
+            "curl_rank": 16,
+            "disable_rope": false,
+            "wdit_curl_update": "additive",
+            "wdit_curl_time_mode": "separate",
+            "wdit_hybrid_delta0": 36.0,
+            "wdit_hybrid_slope": 0.25,
+            "wdit_hard_delta0": 30.0,
+            "wdit_time_embedding": "time2vec",
+            "wdit_time_delta_transform": "normalized",
+            "wdit_time_delta_scale": 19.0,
+            "wdit_curl_time_embedding": "bounded_lowfreq_fourier",
+            "wdit_curl_time_delta_transform": "normalized",
+            "wdit_curl_time_delta_scale": 19.0,
+            "action_dim": 0,
+            "growth_mode": "frozen"
+          }
+        },
+        "condition_to_id": {
+          "Epo": 0,
+          "G-csf": 1,
+          "M-csf": 2,
+          "SCF": 3,
+          "full cocktail": 4
+        },
+        "adapter": {
+          "k_programs": 8,
+          "basis_hidden": 64,
+          "delta_conditioned": true,
+          "emb_dim": 32,
+          "kick_hidden": 128
+        },
+        "tune_base": true,
+        "shared_condition": true
+      }
+    },
+    "rectangle_seed0": {
+      "weights": "models/rectangle_seed0.pt",
+      "sha256": "88f6b099fae2fbf2291aace14b5f0e7b1b9489850f681058290c3fa1124b998c",
+      "source_sha256": "002db8e608a7a2f3bb895ef2d7718f9f557ee6a7f26e48d001b39d09b2a21b56",
+      "export_signature": "7ca004b6d32c170ea5353d754895c5c71d0783e5c43ade4792f094918cb50724",
+      "size_bytes": 158744025,
+      "config": {
+        "kind": "rectangle",
+        "model_size": "small",
+        "xy_scale": 1.6291276205514933,
+        "seed": 0,
+        "enabled": true,
+        "include_heads": true,
+        "delta_scale": 2.5
+      }
+    },
+    "rectangle_seed1": {
+      "weights": "models/rectangle_seed1.pt",
+      "sha256": "407d4003344ee9947b6aa4d117bfaf65b4dd5bac51c8fe70b4dcc7f0d62b8ad2",
+      "source_sha256": "9ce4490c021869d3fdf1799166b8db5898cb2ea30a402325acab6e927c5debb7",
+      "export_signature": "6853eae4a490ee2756a16819e164692b291a425b804217c685566e62f4f971a9",
+      "size_bytes": 158744025,
+      "config": {
+        "kind": "rectangle",
+        "model_size": "small",
+        "xy_scale": 1.6291276205514933,
+        "seed": 1,
+        "enabled": true,
+        "include_heads": true,
+        "delta_scale": 2.5
+      }
+    },
+    "rectangle_seed2": {
+      "weights": "models/rectangle_seed2.pt",
+      "sha256": "0759c89ea66acc84bf444a3b08d2b854afce81a6950fc04660dd1668b7d5a136",
+      "source_sha256": "bb79ad79c88f8bd656b75f768d6f95cccba62ff5ed0c02c611bae303bda765df",
+      "export_signature": "4e52cb7982b9b092472d7ee204fe7703717c3be4f598f363f1a1d5fbda7372ba",
+      "size_bytes": 158744025,
+      "config": {
+        "kind": "rectangle",
+        "model_size": "small",
+        "xy_scale": 1.6291276205514933,
+        "seed": 2,
+        "enabled": true,
+        "include_heads": true,
+        "delta_scale": 2.5
+      }
+    }
+  },
+  "files": {
+    "models/encoder.pt": {
+      "sha256": "1c12feb9e858bda3f87e1bcc7faa9e1088d1b5a71f2dec2eb810fe07115b1e46",
+      "size_bytes": 225994920,
+      "repository": "pretrained"
+    },
+    "models/dynamics.pt": {
+      "sha256": "b50dc75286a477576bf036a0569aa0b789acad9308aff9d55a742d488ed6e06a",
+      "size_bytes": 164890397,
+      "repository": "pretrained"
+    },
+    "models/weinreb_seed0.pt": {
+      "sha256": "25e3fa5a400fb6f6149f5fd2ad4034b6ce9a9f6dcd61b55cce842ad4de79840f",
+      "size_bytes": 164891267,
+      "repository": "downstream"
+    },
+    "models/weinreb_seed1.pt": {
+      "sha256": "7baf8ffcfd3549318f5371a45514c89d385faf35ea09aa6f085d4038fc2ec8aa",
+      "size_bytes": 164891267,
+      "repository": "downstream"
+    },
+    "models/weinreb_seed2.pt": {
+      "sha256": "61a2e9d08ca28562244a1e3032db9be211971da8865435df85eee168fe9671c6",
+      "size_bytes": 164891267,
+      "repository": "downstream"
+    },
+    "models/veres_seed0.pt": {
+      "sha256": "90ca5f9485b5c554e6b70bb7ff5feec10aac58b2da80ea8be01893a0f76fd256",
+      "size_bytes": 164890919,
+      "repository": "downstream"
+    },
+    "models/veres_seed1.pt": {
+      "sha256": "7a0c3d334004e4c9d5808f4cee550d74733d52d58dba769f2fe9708351686e1b",
+      "size_bytes": 164890919,
+      "repository": "downstream"
+    },
+    "models/veres_seed2.pt": {
+      "sha256": "84aeae2951130adbc734961ec097d26abfbc417d4da3673cc089374dbda94e68",
+      "size_bytes": 164890919,
+      "repository": "downstream"
+    },
+    "models/zesta_seed0.pt": {
+      "sha256": "2ba588b6797a92c3659ffcca59aeaedd7b74f3deec5ccfdfd84d18337cd9143a",
+      "size_bytes": 164890919,
+      "repository": "downstream"
+    },
+    "models/zesta_seed1.pt": {
+      "sha256": "1715327b8c8d353f36350d8fd7cc7fe04a71d5a4678dd146aca70f7b44f762cd",
+      "size_bytes": 164890919,
+      "repository": "downstream"
+    },
+    "models/zesta_seed2.pt": {
+      "sha256": "301c32d2582d5416ab015180ebe9e31962e0d774cad183d0f1f9bc7e52671ebf",
+      "size_bytes": 164890919,
+      "repository": "downstream"
+    },
+    "models/cytokine_chreode_tuned_seed0.pt": {
+      "sha256": "3323aec4ef4e2b655281f73aabb757120f5b47c85c84401e64b6849185886f51",
+      "size_bytes": 165462429,
+      "repository": "downstream"
+    },
+    "models/cytokine_scratch_tuned_seed0.pt": {
+      "sha256": "29558693829137c1f3096544fec35121c92eab25fe2b72fae7dcb4ddaa6dd512",
+      "size_bytes": 165462429,
+      "repository": "downstream"
+    },
+    "models/cytokine_noaction_tuned_seed0.pt": {
+      "sha256": "8dc35871ab683fa7ccc718b993a4b3c020862881ea945cee1d4b94633b40a339",
+      "size_bytes": 165462659,
+      "repository": "downstream"
+    },
+    "models/cytokine_chreode_tuned_seed1.pt": {
+      "sha256": "db810b8a06481dbcf782d7d36efed0fc411a90d403d1c059c9691d42db066c94",
+      "size_bytes": 165462429,
+      "repository": "downstream"
+    },
+    "models/cytokine_scratch_tuned_seed1.pt": {
+      "sha256": "c305fc2cf9a4a32d93739b4893193cbbfd576e913c336e20821f4ebd220842da",
+      "size_bytes": 165462429,
+      "repository": "downstream"
+    },
+    "models/cytokine_noaction_tuned_seed1.pt": {
+      "sha256": "9a5d7b20b808514e456028e581ccb2abecbe339be64cfd39881f0b3830c51fde",
+      "size_bytes": 165462659,
+      "repository": "downstream"
+    },
+    "models/cytokine_chreode_tuned_seed2.pt": {
+      "sha256": "230a147766b19915c80ae0afe669d9114b4e0416cc00b12876fcccf1f6ee3171",
+      "size_bytes": 165462429,
+      "repository": "downstream"
+    },
+    "models/cytokine_scratch_tuned_seed2.pt": {
+      "sha256": "f46eb42a9e6bf11b7fda9a8a6841737005ade6ebb815146a88bf3158f07345be",
+      "size_bytes": 165462429,
+      "repository": "downstream"
+    },
+    "models/cytokine_noaction_tuned_seed2.pt": {
+      "sha256": "708147d6bc5ad2c1f02578fbaf4c650181f19ef1ad3a34fe376ce986abdc62be",
+      "size_bytes": 165462659,
+      "repository": "downstream"
+    },
+    "models/rectangle_seed0.pt": {
+      "sha256": "88f6b099fae2fbf2291aace14b5f0e7b1b9489850f681058290c3fa1124b998c",
+      "size_bytes": 158744025,
+      "repository": "downstream"
+    },
+    "models/rectangle_seed1.pt": {
+      "sha256": "407d4003344ee9947b6aa4d117bfaf65b4dd5bac51c8fe70b4dcc7f0d62b8ad2",
+      "size_bytes": 158744025,
+      "repository": "downstream"
+    },
+    "models/rectangle_seed2.pt": {
+      "sha256": "0759c89ea66acc84bf444a3b08d2b854afce81a6950fc04660dd1668b7d5a136",
+      "size_bytes": 158744025,
+      "repository": "downstream"
+    },
+    "data/weinreb/metadata.tsv": {
+      "sha256": "f1346bd1e4c5dd33acdb0bc68c8e5f3bbbc1eff9c731f89390e12c8b16b682d4",
+      "size_bytes": 4844476,
+      "repository": "data"
+    },
+    "data/weinreb/metric_standardization.npz": {
+      "sha256": "14b11dbf68d7024fa521621f35ea83af330305f39146c3dfb286226caa415086",
+      "size_bytes": 1429,
+      "repository": "data"
+    },
+    "data/weinreb/representations.npz": {
+      "sha256": "150c52146ed987ac7bf83ff849e2126c763df2d90e42b5c2a5be7f7ebc4d618c",
+      "size_bytes": 173128746,
+      "repository": "data"
+    },
+    "data/weinreb/split_manifest.json": {
+      "sha256": "27636101bb56912ea75e8bd2a5d636fd69f667fda2b85d744366149ab7f9038d",
+      "size_bytes": 3621,
+      "repository": "data"
+    },
+    "data/veres/metadata.tsv": {
+      "sha256": "f5e509f5cd6aa8f3cb151a62327a640f21bcd44ef165f199b214b3bf02626e54",
+      "size_bytes": 1504345,
+      "repository": "data"
+    },
+    "data/veres/metric_standardization.npz": {
+      "sha256": "5c09b9521dfcfc88addbcc4ab98b89ef9518d4c5d5824dd2ce4a77d2adc0d5fa",
+      "size_bytes": 1430,
+      "repository": "data"
+    },
+    "data/veres/representations.npz": {
+      "sha256": "f4d51cd900e3ab680ab5c3a4eb87eae28d5e73ade5542cb3de90c9ed698a3d03",
+      "size_bytes": 67929709,
+      "repository": "data"
+    },
+    "data/veres/split_manifest.json": {
+      "sha256": "c8d43aaaa0a270bb50b9d810f83b5c21fc2a35d7b96dbbf8a44e09d39ecc024d",
+      "size_bytes": 3701,
+      "repository": "data"
+    },
+    "data/zestaspatial/metadata.tsv": {
+      "sha256": "837462c6afab90ca9ab80dbbd9b6032309a98c60e9cf7bdc930b9e8a4857dc12",
+      "size_bytes": 1265237,
+      "repository": "data"
+    },
+    "data/zestaspatial/metric_standardization.npz": {
+      "sha256": "51c2d011bdb73b067986bb5afcd6a91f4b8a97266a68a9ba2eef13e6f2ba3463",
+      "size_bytes": 1428,
+      "repository": "data"
+    },
+    "data/zestaspatial/representations.npz": {
+      "sha256": "55bf446f57ee25741a0e15a4574dcad2e9ffbfb0d2d3fd01812e9e46d147c0ea",
+      "size_bytes": 12541962,
+      "repository": "data"
+    },
+    "data/zestaspatial/split_manifest.json": {
+      "sha256": "58fc7de3a71d7fb129ffcb7d60fb24758ab975561a35bfa19867fe0d77f1a461",
+      "size_bytes": 3191,
+      "repository": "data"
+    },
+    "data/cytokine/metadata.tsv": {
+      "sha256": "88643cd010a3d8acb4269bd77caa249c981c33187fe106cf7aec396dffe0adba",
+      "size_bytes": 3423837,
+      "repository": "data"
+    },
+    "data/cytokine/metric_standardization.npz": {
+      "sha256": "d0d5e2fe35505407430bb1fcc24a048112ce71f55bcfb6a835971933b2ef4013",
+      "size_bytes": 1436,
+      "repository": "data"
+    },
+    "data/cytokine/representations.npz": {
+      "sha256": "326da0de55648032244b8ba17d1ddb04fcd803613e0c434473c6e6545c3253ea",
+      "size_bytes": 61883479,
+      "repository": "data"
+    },
+    "data/cytokine/split_manifest.json": {
+      "sha256": "0a7680f92d46399846ba499bd2abe5c1f9642a5d0172d97823c88b6b48b926ad",
+      "size_bytes": 3551,
+      "repository": "data"
+    },
+    "data/rectangle/metadata.tsv": {
+      "sha256": "79f2fc14ce639d34c55f728a9f27afdf4bc7d2baa236d96ccaba6a9628e7017e",
+      "size_bytes": 358920,
+      "repository": "data"
+    },
+    "data/rectangle/metric_standardization.npz": {
+      "sha256": "9ffbddd55af55e1c4b01b479c02c52350b1600355d9a2ce45a3fed84bda5bdbe",
+      "size_bytes": 1350,
+      "repository": "data"
+    },
+    "data/rectangle/split_manifest.json": {
+      "sha256": "8e7144ee7e9d555c9b8ad50a60a200de0f4b664065da3d0a323fd179289ef749",
+      "size_bytes": 3325,
+      "repository": "data"
+    },
+    "data/rectangle/representations.npz": {
+      "sha256": "68feb8038c02429a0e439f2d5171b0848cb15bae96d72a0f48bc588b00fd42df",
+      "size_bytes": 264133,
+      "repository": "data"
+    },
+    "data/weinreb/reference/seed0.npz": {
+      "sha256": "04c964675a90588132f6bcd55ef634327c8e054c39840b53dc83551dfd9625d8",
+      "size_bytes": 42729429,
+      "repository": "data"
+    },
+    "data/weinreb/reference/seed1.npz": {
+      "sha256": "8f4e4d37ddf23f7c564efb05f34e66d304d090142d95fbe76b6cb11de01de63c",
+      "size_bytes": 42730040,
+      "repository": "data"
+    },
+    "data/weinreb/reference/seed2.npz": {
+      "sha256": "b622082229ee708db0717ee06b83e5937bd11ccab7d92c4553f66123ad8f39bf",
+      "size_bytes": 42734008,
+      "repository": "data"
+    },
+    "data/veres/reference/seed0.npz": {
+      "sha256": "d2cb337afa2b2b8c7a2f81435da6f3f8528aa47277316e9200b22815133f49ac",
+      "size_bytes": 32733880,
+      "repository": "data"
+    },
+    "data/veres/reference/seed1.npz": {
+      "sha256": "bcda329a31590b757b32f1334f5597205d7e5176ff8d1f15777062ac32c09be5",
+      "size_bytes": 32720150,
+      "repository": "data"
+    },
+    "data/veres/reference/seed2.npz": {
+      "sha256": "90efedb6ba7ee1204aa6c0096517ca7511a5e6e2439021114ff288ce9f1d651f",
+      "size_bytes": 32739553,
+      "repository": "data"
+    },
+    "data/zestaspatial/reference/seed0.npz": {
+      "sha256": "d1bb0fe12164405f042d90b52d42a04e5241f0afefbdeedf61a33e46b492747d",
+      "size_bytes": 4441240,
+      "repository": "data"
+    },
+    "data/zestaspatial/reference/seed1.npz": {
+      "sha256": "449126a160da24d5d2f01032c293647865074cbf28143bb80af56c79ba600700",
+      "size_bytes": 4438743,
+      "repository": "data"
+    },
+    "data/zestaspatial/reference/seed2.npz": {
+      "sha256": "611ef96a777dfc356e55dde8dd23480565bbba46f47fa289c6115f1aeaec2eb7",
+      "size_bytes": 4440479,
+      "repository": "data"
+    }
+  },
+  "code_commit": "1f3e82c2a2a4fa0a113b78da6e6e5a7767af6cb1",
+  "repositories": {
+    "pretrained": {
+      "repo_id": "MufanQiu/chreode-pretrained",
+      "repo_type": "model",
+      "revision": "20b648d876afc3edf134e433ef517d6dd48f80f3"
+    },
+    "downstream": {
+      "repo_id": "MufanQiu/chreode-downstream",
+      "repo_type": "model",
+      "revision": "ed55ae9e563b87e951afbb2ce06af954d6014c9e"
+    },
+    "data": {
+      "repo_id": "MufanQiu/chreode-phase0",
+      "repo_type": "dataset",
+      "revision": "72799b6fb191d4e1c896ea97293e2e55c55d1bad"
+    }
+  }
+}

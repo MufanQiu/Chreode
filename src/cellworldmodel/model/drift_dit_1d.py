@@ -200,6 +200,10 @@ class DriftDiT1D(nn.Module):
         state_chunk_dim: Optional[int] = None,
         learned_state_tokens: Optional[int] = None,
         use_rope: bool = True,
+        time_embedding_mode: str = "legacy_fourier",
+        time_delta_transform: str = "normalized",
+        time_delta_scale: Optional[float] = None,
+        mean_prediction_mode: str = "monte_carlo",
     ):
         super().__init__()
         assert hidden_dim % num_heads == 0, f"hidden_dim={hidden_dim} must be divisible by num_heads={num_heads}"
@@ -209,6 +213,14 @@ class DriftDiT1D(nn.Module):
         self.action_dim = action_dim
 
         self.use_rope = use_rope
+        if time_embedding_mode not in {"legacy_fourier", "time2vec", "bounded_lowfreq_fourier"}:
+            raise ValueError(f"Unknown time_embedding_mode={time_embedding_mode!r}")
+        if mean_prediction_mode not in {"monte_carlo", "zero_noise"}:
+            raise ValueError(f"Unknown mean_prediction_mode={mean_prediction_mode!r}")
+        self.time_embedding_mode = time_embedding_mode
+        self.time_delta_transform = time_delta_transform
+        self.time_delta_scale = float(time_delta_scale) if time_delta_scale is not None else float(tau_init) * math.log(2.0)
+        self.mean_prediction_mode = mean_prediction_mode
 
         # DiT v2: dim-split src/noise into multiple state tokens to let attention
         # learn "gene-module / latent-subspace" interactions (GPT 5.4 Pro rec'd).
@@ -247,7 +259,23 @@ class DriftDiT1D(nn.Module):
             self.action_proj = None
 
         # Conditioning: time + optional action summary (action also attends in sequence)
-        self.time_embed = FourierTimeEmbedding(hidden_dim, n_freqs=time_emb_dim // 2)
+        if time_embedding_mode == "legacy_fourier":
+            self.time_embed = FourierTimeEmbedding(hidden_dim, n_freqs=time_emb_dim // 2)
+        else:
+            # Delay this import because Waddington-DiT reuses the blocks above.
+            from cellworldmodel.model.waddington_dit_1d import (
+                BoundedLowFreqFourierTimeEmbedding,
+                Time2VecDeltaEmbedding,
+            )
+            if time_embedding_mode == "time2vec":
+                self.time_embed = Time2VecDeltaEmbedding(
+                    hidden_dim, n_periodic=max(1, time_emb_dim // 2),
+                    delta_scale=self.time_delta_scale, transform=time_delta_transform,
+                )
+            else:
+                self.time_embed = BoundedLowFreqFourierTimeEmbedding(
+                    hidden_dim, delta_scale=self.time_delta_scale, transform=time_delta_transform,
+                )
         if action_dim > 0:
             self.action_cond = nn.Sequential(
                 nn.Linear(action_dim, hidden_dim),
@@ -456,13 +484,18 @@ class DriftDiT1D(nn.Module):
         n_mc: int = 32,
         antithetic: bool = False,
     ) -> torch.Tensor:
-        """Deterministic mean prediction via Monte-Carlo over noise.
+        """Monte Carlo mean, or an explicitly configured zero-noise representative.
 
         DiT-1D's residual depends on ε through self-attention (no closed-form
         zero-mean centering like BR). So we approximate mean by averaging K
-        forward passes. Used for ablation / deterministic baselines.
+        forward passes by default. ``zero_noise`` evaluates one zero-noise
+        residual without consuming RNG; it is not the mathematical expectation
+        of this nonlinear generator. The method name retains the trainer API.
         """
         B = z.shape[0]
+        if self.mean_prediction_mode == "zero_noise":
+            eps = torch.zeros(B, 1, self.dim, device=z.device, dtype=z.dtype)
+            return self.forward(z, delta, eps, action).squeeze(1)
         if antithetic:
             half = max(1, n_mc // 2)
             eps_half = torch.randn(B, half, self.dim, device=z.device, dtype=z.dtype)

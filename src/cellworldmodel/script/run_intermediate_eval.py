@@ -27,6 +27,8 @@ Output JSON (output/intermediate_eval/{method}_{dataset}_seed{N}/):
 """
 from __future__ import annotations
 
+from cellworldmodel.provenance.writer import capture_adapter_run, fingerprint_files, write_results
+
 import argparse
 import json
 import time
@@ -35,7 +37,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from cellworldmodel.benchmark.configs import DATASET_CONFIGS
+from cellworldmodel.benchmark.configs import DATASET_CONFIGS, dataset_config, dataset_pcs
 from cellworldmodel.benchmark.config_overrides import apply_common_overrides
 from cellworldmodel.benchmark.experiment_registry import add_experiment_arg, apply_experiment_args
 from cellworldmodel.benchmark.registry import build_adapter, build_model
@@ -120,13 +122,39 @@ def _build_validation_callback(model, adapter, sampler: TimepointTransitionSampl
             })
         w2_values = [row["w2"] for row in rows]
         mmd_values = [row["mmd"] for row in rows]
-        return {
+        result = {
             "val_w2_mean": float(np.mean(w2_values)),
             "val_mmd_mean": float(np.mean(mmd_values)),
             "val_objective": float(np.mean(w2_values) + np.mean(mmd_values)),
             "val_targets": rows,
             "val_split": split,
         }
+        if float(cfg.get("lambda_comp", 0.0)) > 0:
+            # Diagnostic only: fixed validation clouds and isolated RNG, no selection change.
+            devices = [source.device.index] if source.is_cuda else []
+            with torch.random.fork_rng(devices=devices):
+                times = sorted(float(t) for t in adapter.timepoints)
+                diagnostic_seed = int(args.seed) + 171001
+                torch.manual_seed(diagnostic_seed)
+                direct = predict_at_delta(model, source, times[-1] - times[0], cfg["K"], adapter.dim, device)
+                torch.manual_seed(diagnostic_seed)
+                composed = predict_at_delta(model, source, times[1] - times[0], cfg["K"], adapter.dim, device)
+                for hop, (start, end) in enumerate(zip(times[1:-1], times[2:]), 1):
+                    torch.manual_seed(diagnostic_seed + hop)
+                    composed = predict_at_delta(model, composed, end - start, 1, adapter.dim, device)
+                generator = torch.Generator(device=device).manual_seed(diagnostic_seed)
+                ids = torch.randperm(len(direct), device=device, generator=generator)[:int(args.validation_max_preds)]
+                direct, composed = direct[ids], composed[ids]
+                target = targets[times[-1]]
+                direct_w2 = sinkhorn_w2(direct, target, epsilon=float(cfg["sinkhorn_eps"]), num_iters=50)
+                composed_w2 = sinkhorn_w2(composed, target, epsilon=float(cfg["sinkhorn_eps"]), num_iters=50)
+                result.update(val_composition_path=times,
+                              val_composition_direct_w2=float(direct_w2),
+                              val_composition_composed_w2=float(composed_w2),
+                              val_composition_gap_w2=float(composed_w2 - direct_w2),
+                              val_composition_mmd2=float(mmd2_unbiased_multi_sigma(composed, direct)))
+            print(f"[composition validation] path={times} squared_sinkhorn_gap={result['val_composition_gap_w2']:.6f}")
+        return result
 
     return validate
 
@@ -164,11 +192,24 @@ def main():
     parser = argparse.ArgumentParser()
     add_experiment_arg(parser)
     parser.add_argument("--method", required=False, choices=["m1", "m2", "m7", "m8", "m9", "m10"])
-    parser.add_argument("--dataset", required=True,
-                        choices=[
-                            "mouse", "veres", "weinreb_scvi", "weinreb_hvg", "veres_scvi",
-                            "paper_weinreb_scvi128", "paper_veres_scvi128",
-                        ])
+    # Keep in sync with benchmark.registry.build_adapter. Fixed names are
+    # validated; paper_native_<name> is open-ended by design, since it resolves
+    # to whatever representation directory the caller exported.
+    _FIXED_DATASETS = [
+        "mouse", "veres", "weinreb_scvi", "weinreb_hvg", "veres_scvi",
+        "paper_weinreb_scvi128", "paper_veres_scvi128",
+        "synthetic_growth", "cellstream_sim_growth",
+        "stvcr_rectangle_gene",
+    ]
+
+    def _dataset_arg(value: str) -> str:
+        if value in _FIXED_DATASETS or value.startswith("paper_native_"):
+            return value
+        raise argparse.ArgumentTypeError(
+            f"invalid dataset {value!r}; expected one of {_FIXED_DATASETS} "
+            "or a paper_native_<name> export")
+
+    parser.add_argument("--dataset", required=True, type=_dataset_arg)
     parser.add_argument("--split-seed", type=int, default=None)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--epochs", type=int, default=None)
@@ -230,6 +271,14 @@ def main():
                         help="Delta scaling transform for non-legacy Waddington-DiT time embeddings.")
     parser.add_argument("--wdit-time-delta-scale", type=float, default=None,
                         help="Manual Delta scale for non-legacy Waddington-DiT time embeddings.")
+    parser.add_argument("--dit-time-embedding", choices=["legacy_fourier", "bounded_lowfreq_fourier", "time2vec"],
+                        default=None, help="Time embedding for an unconstrained DriftDiT1D recipe.")
+    parser.add_argument("--dit-time-delta-transform", choices=["normalized", "log1p"], default=None,
+                        help="Time normalization for unconstrained DiT.")
+    parser.add_argument("--dit-time-delta-scale", type=float, default=None,
+                        help="Positive time scale for unconstrained DiT, separate from --wdit-time-delta-scale.")
+    parser.add_argument("--dit-mean-prediction", choices=["monte_carlo", "zero_noise"], default=None,
+                        help="Unconstrained DiT auxiliary prediction; zero_noise is a representative, not an expectation.")
     parser.add_argument("--wdit-curl-time-embedding",
                         choices=["same", "legacy_fourier", "bounded_lowfreq_fourier", "time2vec"],
                         default=None, help="Separate curl-branch Delta embedding mode for Waddington-DiT.")
@@ -248,6 +297,12 @@ def main():
                         help="Subtract log(N_pos)/log(N_neg) from pos/neg logits in L_drift.")
     parser.add_argument("--batch-size", type=int, default=None)
     parser.add_argument("--K", type=int, default=None, dest="K")
+    parser.add_argument("--lr", type=float, default=None)
+    parser.add_argument("--transport-objective", default=None,
+                        choices=["legacy", "sinkhorn_divergence", "converged_proxy"])
+    parser.add_argument("--transport-blur", type=float, default=None)
+    parser.add_argument("--transport-max-iters", type=int, default=None)
+    parser.add_argument("--transport-tolerance", type=float, default=None)
     parser.add_argument("--save-checkpoint", action="store_true",
                         help="Save final model state_dict to output-dir/checkpoint_final.pt.")
     parser.add_argument("--val-every", type=int, default=0,
@@ -266,10 +321,36 @@ def main():
                         help="Only train/save checkpoint; useful when a downstream evaluator is run separately.")
     parser.add_argument("--checkpoint-every", type=int, default=0,
                         help="Save training-curve checkpoints every N epochs under output-dir/checkpoints.")
+    parser.add_argument("--checkpoint-updates", type=int, nargs="+", default=None,
+                        help="Save at exact updates; finish these budgets after early stopping, keeping its selected best frozen.")
+    parser.add_argument("--training-fraction", type=float, default=1.0,
+                        help="Fraction of training cells per timepoint; held-out pools stay unchanged. Requires per_timepoint splits.")
     parser.add_argument("--growth-weight-path", type=str, default=None,
                         help="Optional PRESCIENT-style full-length growth score file.")
     parser.add_argument("--growth-weight-scale", type=float, default=1.0,
                         help="Scale applied in exp(scale * Delta * growth_score).")
+    parser.add_argument("--growth-mode", choices=["none", "frozen", "learned"], default=None,
+                        help="Mass handling: none, frozen sampler weights, or learned W-DiT growth head.")
+    parser.add_argument("--lambda-mass", type=float, default=None,
+                        help="Absolute total-mass loss weight. Requires validated population_mass_by_t.")
+    parser.add_argument("--growth-head-warmup-epochs", type=int, default=None,
+                        help="Train only the learned growth head for this many initial epochs.")
+    parser.add_argument("--growth-log-mass-clip", type=float, default=None,
+                        help="Clamp alpha(Delta)*growth before exponentiating to mass.")
+    parser.add_argument("--growth-integration-steps", type=int, default=None,
+                        help="Integrate growth over this many intermediate one-step states.")
+    parser.add_argument("--lambda-growth-energy", type=float, default=None,
+                        help="Fixed penalty on squared growth rate.")
+    parser.add_argument("--lambda-growth-logvar", type=float, default=None,
+                        help="Fixed penalty on centered finite-interval log-mass variance.")
+    parser.add_argument("--lambda-growth-gauge", type=float, default=None,
+                        help="Fixed zero-mean log-mass gauge penalty when absolute mass is unavailable.")
+    parser.add_argument("--lambda-otpair", type=float, default=None,
+                        help="D-2: weight of the OT-coupled barycentric pairing loss (default: recipe/0).")
+    parser.add_argument("--lambda-kinetic", type=float, default=None,
+                        help="D-2: weight of the kinetic (squared mean displacement) regularizer.")
+    parser.add_argument("--lambda-comp", type=float, default=None,
+                        help="Fixed two-hop population MMD weight; omitted or zero preserves the original training path.")
     parser.add_argument("--multi-delta", action="store_true",
                         help="Multi-Δ joint training (see run_benchmark.py --multi-delta).")
     parser.add_argument("--md-endpoint-prob", type=float, default=None,
@@ -279,13 +360,28 @@ def main():
     add_wandb_args(parser)
     args = parser.parse_args()
 
+    checkpoint_inputs = {name: value for name, value in {
+        "initialization_checkpoint": args.init_checkpoint,
+        "model_config_checkpoint": args.model_config_checkpoint,
+        "growth_weights": args.growth_weight_path,
+    }.items() if value is not None}
+    captured_checkpoints = fingerprint_files(checkpoint_inputs)
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    cfg = dict(DATASET_CONFIGS[args.dataset])
+    cfg = dataset_config(args.dataset)
     try:
         recipe_method, recipe_epochs, recipe_save_checkpoint = apply_experiment_args(args, cfg)
     except ValueError as exc:
         parser.error(str(exc))
     args.method = recipe_method
+    if args.lambda_otpair is not None:
+        cfg["lambda_otpair"] = float(args.lambda_otpair)
+    if args.lambda_kinetic is not None:
+        cfg["lambda_kinetic"] = float(args.lambda_kinetic)
+    if args.lambda_comp is not None:
+        if not np.isfinite(args.lambda_comp) or args.lambda_comp < 0:
+            parser.error("--lambda-comp must be finite and non-negative")
+        cfg["lambda_comp"] = float(args.lambda_comp)
     model_config_updates = {}
     if args.model_config_checkpoint:
         model_config_updates = apply_model_config_from_checkpoint(cfg, args.model_config_checkpoint)
@@ -294,8 +390,10 @@ def main():
         recipe_epochs if recipe_epochs is not None else cfg["default_epochs"]
     )
     apply_common_overrides(args, cfg)
-    from cellworldmodel.benchmark.configs import DEFAULT_PCS
-    pcs = args.pcs if args.pcs is not None else DEFAULT_PCS.get(args.dataset, 50)
+    for name in ("transport_objective", "transport_blur", "transport_max_iters", "transport_tolerance"):
+        if getattr(args, name) is not None:
+            cfg[name] = getattr(args, name)
+    pcs = args.pcs if args.pcs is not None else dataset_pcs(args.dataset, default=128)
 
     output_dir = args.output_dir or f"output/intermediate_eval/{args.method}_{args.dataset}_seed{args.seed}"
     out_path = Path(output_dir)
@@ -348,6 +446,25 @@ def main():
     else:
         print("Split policy: legacy")
 
+    if not 0 < args.training_fraction <= 1:
+        raise ValueError("--training-fraction must be in (0, 1]")
+    if args.training_fraction < 1:
+        if sampler is None:
+            raise ValueError("--training-fraction requires per_timepoint splits")
+        if cfg.get("drift_pos_ratio") is not None:
+            raise ValueError("--training-fraction does not support adapter-based drift_pos_ratio sampling")
+        selection = sampler.subsample_training(args.training_fraction, benchmark=args.dataset, seed=args.seed)
+        (out_path / "training_subset.json").write_text(json.dumps(selection, indent=2) + "\n")
+        print("Training subset:", {t: v["selected"] for t, v in selection["timepoints"].items()})
+
+    run_provenance = capture_adapter_run(
+        adapter=adapter, sampler=sampler, operation="training",
+        objective="population transition matching; active losses and selection in resolved cfg",
+        resolved_config={"args": vars(args), "cfg": cfg, "n_params": int(n_params),
+                         "tau_init": tau_init, "split_seed": split_seed},
+        source_file=__file__, checkpoint_inputs=checkpoint_inputs,
+        captured_checkpoints=captured_checkpoints)
+
     wandb_config = {
         "script": "run_intermediate_eval",
         "args": vars(args),
@@ -396,6 +513,11 @@ def main():
             init_info=init_info,
             model_config_checkpoint=args.model_config_checkpoint,
             model_config_updates=model_config_updates,
+            # A checkpoint is only meaningful in the coordinates it was trained
+            # in; carry them so a later evaluation can tell.
+            representation_dir=str(getattr(adapter, "representation_dir", "")) or None,
+            encoder_provenance=getattr(adapter, "encoder_provenance", None),
+            provenance=run_provenance.model_dump(mode="json"),
         )
         if extra:
             payload.update(extra)
@@ -425,8 +547,9 @@ def main():
                            early_stopping_patience=args.early_stopping_patience,
                            early_stopping_min_delta=args.early_stopping_min_delta,
                            restore_best_validation=not args.no_restore_best_validation,
-                           checkpoint_callback=save_curve_checkpoint if args.checkpoint_every > 0 else None,
-                           checkpoint_every=args.checkpoint_every)
+                           checkpoint_callback=save_curve_checkpoint if args.checkpoint_every > 0 or args.checkpoint_updates else None,
+                           checkpoint_every=args.checkpoint_every,
+                           checkpoint_updates=args.checkpoint_updates)
     train_time = time.time() - t0
     best_validation = _best_validation_record(history)
     print(f"Train time: {train_time:.1f}s")
@@ -458,13 +581,18 @@ def main():
             print(f"Saved validation-best checkpoint to {best_ckpt_file}")
 
     out_file = out_path / "results.json"
-    with open(out_file, "w") as f:
-        json.dump({
+    write_results(out_file, {
             "method": args.method, "dataset": args.dataset, "seed": args.seed,
             "cfg": cfg, "epochs": epochs, "pcs": pcs, "n_params": int(n_params),
             "checkpoint": str(ckpt_file) if ckpt_file is not None else None,
             "init_checkpoint": args.init_checkpoint,
             "init_info": init_info,
+            # Which Stage-1 encoder wrote the coordinates this run trained in.
+            # Runs whose representation was written by different encoders are
+            # not comparable, and without this the mix-up is invisible in the
+            # artifacts (2026-09-02 audit).
+            "representation_dir": str(getattr(adapter, "representation_dir", "")) or None,
+            "encoder_provenance": getattr(adapter, "encoder_provenance", None),
             "best_validation": best_validation,
             "train_history": history,
             "model_config_checkpoint": args.model_config_checkpoint,
@@ -472,7 +600,7 @@ def main():
             "wandb": wandb_run_info(wandb_run),
             "train_time_s": float(train_time), "tau_init": tau_init,
             "intermediate_eval": results,
-        }, f, indent=2, default=str)
+        }, run_provenance)
     print(f"\nSaved to {out_file}")
     if wandb_run is not None:
         wandb_run.finish()

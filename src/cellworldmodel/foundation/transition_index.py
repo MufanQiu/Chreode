@@ -123,6 +123,45 @@ class FoundationTransitionIdSampler:
         self.leaf_probs = weights / weights.sum()
         self._pool_cache: dict[tuple[str, float], np.ndarray] = {}
 
+    def restrict_to_leaf_endpoints(self) -> dict:
+        """Restrict within-leaf pairs while preserving original leaf probabilities.
+
+        Require the complete ordered training-pair reference. The caller retains
+        that reference for model time scales; filtering must not silently change
+        the distribution over datasets or reinterpret endpoints as one global Δ.
+        """
+        if self._pool_cache:
+            raise ValueError("Select endpoint sampling before sampling any cells")
+        endpoint_rows = []
+        reference_count = len(self.transitions)
+        for leaf in self.leaves:
+            cells = self.cells[self.cells["leaf_dataset"] == leaf]
+            times = sorted(float(t) for t in cells["timepoint"].dropna().unique())
+            rows = self.transitions[self.transitions["leaf_dataset"] == leaf]
+            actual = list(zip(rows["source_t"].astype(float), rows["target_t"].astype(float)))
+            expected = ordered_pairs(times, "all_ordered")
+            if not expected or len(actual) != len(expected) or set(actual) != set(expected):
+                raise ValueError(f"Endpoint sampling requires complete ordered pairs for {leaf}")
+            selected = rows[(rows["source_t"] == times[0]) & (rows["target_t"] == times[-1])]
+            if len(selected) != 1 or not np.isfinite(selected["delta"]).all():
+                raise ValueError(f"Invalid endpoint transition for {leaf}")
+            row = selected.iloc[0]
+            if float(row.delta) != times[-1] - times[0] or float(row.delta) <= 0:
+                raise ValueError(f"Endpoint horizon differs from its timepoints for {leaf}")
+            endpoint_rows.append(selected)
+        self.transitions = pd.concat(endpoint_rows, ignore_index=True)
+        return {
+            "policy": "leaf_endpoints",
+            "reference_policy": "all_ordered",
+            "reference_transition_count": reference_count,
+            "sampled_transition_count": len(self.transitions),
+            "leaf_datasets": [str(leaf) for leaf in self.leaves],
+            "leaf_probabilities": self.leaf_probs.tolist(),
+            "leaf_probability_source": "unchanged complete ordered-pair reference counts",
+            "model_time_scale_source": "unchanged complete ordered-pair reference horizons",
+            "transitions": self.transitions.to_dict(orient="records"),
+        }
+
     def _pool(self, leaf: str, timepoint: float) -> np.ndarray:
         key = (str(leaf), float(timepoint))
         cached = self._pool_cache.get(key)

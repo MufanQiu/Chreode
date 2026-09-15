@@ -75,7 +75,7 @@ class WeinrebHVGAdapter(TimePointAdapter):
         except Exception as e:
             raise RuntimeError(
                 f"Failed to load {path}: {e}. This .pt uses numba pickles (UMAP). "
-                f"Run in prescient conda env (/home/rzh/conda-environment/prescient/bin/python) "
+                f"Run in an environment with PRESCIENT installed "
                 f"or extract just 'xp'/'y' and save as a clean .pt."
             ) from e
 
