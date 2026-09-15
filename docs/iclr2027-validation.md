@@ -34,7 +34,8 @@ That bounded check is not a rerun of the reported training experiment.
 Focused tests cover the existing model/metric/encoder paths, transport objective,
 budget selection, niche and spatial heads, no-action mapping, checksum errors,
 path containment, immutable download revisions and corrupt cached downloads.
-The two suites pass 101 tests in total, with one CUDA-only test skipped; 44 nested
+The two suites pass 101 tests in total, with one Leiden clustering test skipped
+because the optional igraph/leidenalg dependencies are not installed; 44 nested
 subtests also pass. Complete declared dependencies install and `uv pip check`
 reports no incompatibilities. macOS validation uses SciPy 1.13.1, matching the
 original numerical environment; the tested SciPy 1.15.3 wheel had an import error.
