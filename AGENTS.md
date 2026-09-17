@@ -24,6 +24,8 @@ instruction entrypoint.
   existing experiments still run and meet their predeclared numerical criteria.
   New features require three comparable conditions: the original baseline, the
   modified code with the feature disabled, and the modified code with it enabled.
+  Cite an existing baseline result when its protocol, code version, and artifacts
+  match; only the disabled-feature arm must be rerun on the new code.
   Record regressions and negative results as faithfully as improvements.
 - Update records and commit/push verifiable changes to the authorized task branch
   promptly. Missing applicable evidence remains unverified and blocks merging;
