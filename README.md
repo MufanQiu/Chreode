@@ -136,4 +136,4 @@ filesystem paths. A source checkpoint fingerprint identifies the original
 encoder; the downloadable tensor-only checkpoint has a separate file checksum.
 
 Contributions follow [AGENTS.md](AGENTS.md) and the
-[research review policy](docs/research-governance/policy.md).
+[research evidence policy](docs/research-governance/policy.md).
