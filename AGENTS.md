@@ -1,5 +1,10 @@
 # Agent contribution requirements
 
+## Who can read this repository (2026-11-06)
+
+Other people can read this repository. Do not write the maintainer's input or conversation context into it (quotes, paraphrases, who asked for what and when, session names), in files, code comments, config notes, commit messages or PR text. That belongs in the maintainer's private repositories. Comments explain the code.
+
+
 Before changing this repository, read the [research development and evidence
 policy](docs/research-governance/policy.md), the applicable reproduction documents,
 and the existing implementation. `CLAUDE.md` links to this file; maintain one
